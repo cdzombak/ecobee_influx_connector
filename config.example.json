@@ -1,0 +1,9 @@
+{
+  "api_key": "YOUR_API_KEY_HERE",
+  "work_dir": "/home/ME/.ecobee_influx_connector",
+  "thermostat_id": "12345678",
+  "influx_server": "http://192.168.1.2:8086",
+  "influx_bucket": "MYHOME",
+  "write_aux_heat_1": true,
+  "write_cool_1": true
+}

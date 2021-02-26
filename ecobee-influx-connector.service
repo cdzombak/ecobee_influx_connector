@@ -1,0 +1,15 @@
+[Unit]
+Description=Ecobee connector to InfluxDB
+Requires=network.target
+After=network.target
+
+[Service]
+Type=simple
+User=cdzombak
+Group=cdzombak
+ExecStart=/usr/local/bin/ecobee_influx_connector -config "/home/cdzombak/.ecobee_influx_connector/config.json"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
