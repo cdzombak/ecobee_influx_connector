@@ -1,14 +1,10 @@
 # Ecobee -> InfluxDB Connector
 
-# TODO
-
-- [ ] TODO(cdzombak): docs
-- [ ] TODO(cdzombak): license
-- [ ] TODO(cdzombak): store watermarks in working directory and read them on restart
-
 # Build
 
-- [ ] TODO(cdzombak): build docs
+```shell
+go build -o ./ecobee_influx_connector .
+```
 
 ## Getting Started
 
@@ -24,8 +20,22 @@ You should then be presented with a list of thermostats in your Ecobee account, 
 
 # Configure
 
-- [ ] TODO(cdzombak): config docs
+Configuration is specified in a JSON file. Create a file (based on the template `config.example.json` stored in this repository) and customize it with your Ecobee API key, thermostat ID, and Influx server.
+
+Use the `write_*` config fields to tell the connector which pieces of equipment you use.
+
+The `work_dir` is where client credentials and (in the future) last-written watermarks are stored.
 
 # Install & Run
 
 - [ ] TODO(cdzombak): install/run docs
+    - good idea to chmod the work dir 700 and the files inside 600
+    - ecobee-influx-connector.service systemd unit is provided and can be customized
+
+## License
+
+Apache 2; see `LICENSE` in this repository.
+
+## Author
+
+[Chris Dzombak](https://www.dzombak.com) (GitHub [@cdzombak](https://github.com/cdzombak)).
