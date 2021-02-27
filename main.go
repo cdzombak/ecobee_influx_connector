@@ -39,6 +39,28 @@ const (
 	thermostatNameTag = "thermostat_name"
 )
 
+func indoorHumidityRecommendation(outdoorTempF float64) int {
+	if outdoorTempF >= 40 {
+		return 45
+	}
+	if outdoorTempF >= 30 {
+		return 40
+	}
+	if outdoorTempF >= 20 {
+		return 35
+	}
+	if outdoorTempF >= 10 {
+		return 30
+	}
+	if outdoorTempF >= 0 {
+		return 25
+	}
+	if outdoorTempF >= -10 {
+		return 20
+	}
+	return 25
+}
+
 func main() {
 	var configFile = flag.String("config", "", "Configuration JSON file.")
 	var listThermostats = flag.Bool("list-thermostats", false, "List available thermostats, then exit.")
@@ -309,6 +331,7 @@ func main() {
 									"barometric_pressure": pressureMillibar,
 									"dew_point": dewpoint,
 									"wind_speed": windspeedMph,
+									"recommended_indoor_humidity": indoorHumidityRecommendation(outdoorTemp),
 								},
 								weatherTime,
 							))
