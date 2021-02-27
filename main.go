@@ -155,10 +155,10 @@ func main() {
 				for i := 0; i < 3; i++ {
 					reportTime := baseReportTime
 					if i == 0 {
-						reportTime = reportTime.Add(-10 * time.Minute)
-					}
-					if i == 1 {
 						reportTime = reportTime.Add(-5 * time.Minute)
+					}
+					if i == 2 {
+						reportTime = reportTime.Add(5 * time.Minute)
 					}
 
 					currentTemp := float64(t.ExtendedRuntime.ActualTemperature[i]) / 10.0
