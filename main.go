@@ -40,6 +40,9 @@ const (
 )
 
 func indoorHumidityRecommendation(outdoorTempF float64) int {
+	if outdoorTempF >= 50 {
+		return 50
+	}
 	if outdoorTempF >= 40 {
 		return 45
 	}
@@ -196,12 +199,12 @@ func main() {
 							ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
 							defer cancel()
 							fields := map[string]interface{}{
-								"temperature": currentTemp,
-								"humidity": currentHumidity,
-								"heat_set_point": heatSetPoint,
-								"cool_set_point": coolSetPoint,
+								"temperature":        currentTemp,
+								"humidity":           currentHumidity,
+								"heat_set_point":     heatSetPoint,
+								"cool_set_point":     coolSetPoint,
 								"demand_mgmt_offset": demandMgmtOffset,
-								"fan_run_time": fanRunSec,
+								"fan_run_time":       fanRunSec,
 							}
 							if config.WriteHumidifier {
 								fields["humidity_set_point"] = humiditySetPoint
@@ -286,8 +289,8 @@ func main() {
 									"ecobee_sensor",
 									map[string]string{
 										thermostatNameTag: t.Name,
-										"sensor_name": sensor.Name,
-										"sensor_id": sensor.ID,
+										"sensor_name":     sensor.Name,
+										"sensor_id":       sensor.ID,
 									}, // tags
 									fields,
 									sensorTime,
@@ -326,12 +329,12 @@ func main() {
 								"ecobee_weather",
 								map[string]string{thermostatNameTag: t.Name}, // tags
 								map[string]interface{}{ // fields
-									"outdoor_temp": outdoorTemp,
-									"outdoor_humidity": outdoorHumidity,
-									"barometric_pressure": pressureMillibar,
-									"dew_point": dewpoint,
-									"wind_speed": windspeedMph,
-									"recommended_indoor_humidity": indoorHumidityRecommendation(outdoorTemp),
+									"outdoor_temp":                    outdoorTemp,
+									"outdoor_humidity":                outdoorHumidity,
+									"barometric_pressure":             pressureMillibar,
+									"dew_point":                       dewpoint,
+									"wind_speed":                      windspeedMph,
+									"recommended_max_indoor_humidity": indoorHumidityRecommendation(outdoorTemp),
 								},
 								weatherTime,
 							))
@@ -355,7 +358,7 @@ func main() {
 	doUpdate()
 	for {
 		select {
-		case <- time.Tick(5 * time.Minute):
+		case <-time.Tick(5 * time.Minute):
 			doUpdate()
 		}
 	}
