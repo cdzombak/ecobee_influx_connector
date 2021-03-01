@@ -6,6 +6,12 @@
 go build -o ./ecobee_influx_connector .
 ```
 
+To cross-compile for eg. Linux/amd64:
+
+```shell
+env GOOS=linux GOARCH=amd64 go build -o ./ecobee_influx_connector .
+```
+
 ## Getting Started
 
 1. Register and enable the developer dashboard on your Ecobee account at https://www.ecobee.com/developers/
@@ -24,13 +30,20 @@ Configuration is specified in a JSON file. Create a file (based on the template 
 
 Use the `write_*` config fields to tell the connector which pieces of equipment you use.
 
-The `work_dir` is where client credentials and (in the future) last-written watermarks are stored.
+The `work_dir` is where client credentials and (yet to be implemented) last-written watermarks are stored.
 
-# Install & Run
+# Install & Run via systemd on Linux
 
-- [ ] TODO(cdzombak): install/run docs
-    - good idea to chmod the work dir 700 and the files inside 600
-    - ecobee-influx-connector.service systemd unit is provided and can be customized
+1. Build the `ecobee_influx_connector` binary per the Build instructions above.
+2. Copy it to `/usr/local/bin` or your preferred location.
+3. Create a work directory for the connector. (I put this at `$HOME/.ecobee_influx_connector`.)
+4. Run `chmod 700 $YOUR_NEW_WORK_DIR`. (For my work directory, I ran `chmod 700 $HOME/.ecobee_influx_connector`.)
+5. Create a configuration JSON file, per the Configure instructions above. (I put this at `$HOME/.ecobee_influx_connector/config.json`.)
+6. Customize [`ecobee-influx-connector.service`](https://raw.githubusercontent.com/cdzombak/ecobee_influx_connector/main/ecobee-influx-connector.service) with your user/group name and the path to your config file.
+7. Copy that customized `ecobee-influx-connector.service` to `/etc/systemd/system`.
+8. Run `chown root:root /etc/systemd/system/ecobee-influx-connector.service`.
+9. Run `systemctl daemon-reload && systemctl enable ecobee-influx-connector.service && systemctl start ecobee-influx-connector.service`.
+10. Check the service's status with `systemctl status ecobee-influx-connector.service`.
 
 ## License
 
