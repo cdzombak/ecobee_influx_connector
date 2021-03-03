@@ -274,6 +274,10 @@ func main() {
 						fmt.Printf("\toccupied: %t\n", presence)
 					}
 
+					if temp == 0.0 {
+						continue
+					}
+
 					if sensorTime != lastWrittenSensors {
 						if err := retry.Do(func() error {
 							ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
