@@ -19,20 +19,21 @@ import (
 )
 
 type Config struct {
-	APIKey          string `json:"api_key"`
-	WorkDir         string `json:"work_dir,omitempty"`
-	ThermostatID    string `json:"thermostat_id"`
-	InfluxServer    string `json:"influx_server"`
-	InfluxUser      string `json:"influx_user,omitempty"`
-	InfluxPass      string `json:"influx_password,omitempty"`
-	InfluxBucket    string `json:"influx_bucket"`
-	WriteHeatPump1  bool   `json:"write_heat_pump_1"`
-	WriteHeatPump2  bool   `json:"write_heat_pump_2"`
-	WriteAuxHeat1   bool   `json:"write_aux_heat_1"`
-	WriteAuxHeat2   bool   `json:"write_aux_heat_2"`
-	WriteCool1      bool   `json:"write_cool_1"`
-	WriteCool2      bool   `json:"write_cool_2"`
-	WriteHumidifier bool   `json:"write_humidifier"`
+	APIKey             string `json:"api_key"`
+	WorkDir            string `json:"work_dir,omitempty"`
+	ThermostatID       string `json:"thermostat_id"`
+	InfluxServer       string `json:"influx_server"`
+	InfluxUser         string `json:"influx_user,omitempty"`
+	InfluxPass         string `json:"influx_password,omitempty"`
+	InfluxBucket       string `json:"influx_bucket"`
+	WriteHeatPump1     bool   `json:"write_heat_pump_1"`
+	WriteHeatPump2     bool   `json:"write_heat_pump_2"`
+	WriteAuxHeat1      bool   `json:"write_aux_heat_1"`
+	WriteAuxHeat2      bool   `json:"write_aux_heat_2"`
+	WriteCool1         bool   `json:"write_cool_1"`
+	WriteCool2         bool   `json:"write_cool_2"`
+	WriteHumidifier    bool   `json:"write_humidifier"`
+	AlwaysWriteWeather bool   `json:"always_write_weather_as_current"`
 }
 
 const (
@@ -324,10 +325,14 @@ func main() {
 				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind speed: %d mph\n",
 					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windspeedMph)
 
-				if weatherTime != lastWrittenWeather {
+				if weatherTime != lastWrittenWeather || config.AlwaysWriteWeather {
 					if err := retry.Do(func() error {
 						ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
 						defer cancel()
+						pointTime := weatherTime
+						if config.AlwaysWriteWeather {
+							pointTime = time.Now()
+						}
 						err := influxWriteApi.WritePoint(ctx,
 							influxdb2.NewPoint(
 								"ecobee_weather",
@@ -340,7 +345,7 @@ func main() {
 									"wind_speed":                      windspeedMph,
 									"recommended_max_indoor_humidity": indoorHumidityRecommendation(outdoorTemp),
 								},
-								weatherTime,
+								pointTime,
 							))
 						if err != nil {
 							return err
