@@ -320,10 +320,13 @@ func main() {
 				outdoorHumidity := t.Weather.Forecasts[0].RelativeHumidity
 				dewpoint := float64(t.Weather.Forecasts[0].Dewpoint) / 10.0
 				windspeedMph := t.Weather.Forecasts[0].WindSpeed
+				windBearing := t.Weather.Forecasts[0].WindBearing
+				visibilityMeters := t.Weather.Forecasts[0].Visibility
+				visibilityMiles := float64(visibilityMeters) / 1609.34
 
 				fmt.Printf("Weather at %s:\n", weatherTime)
-				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind speed: %d mph\n",
-					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windspeedMph)
+				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\tvisibility: %.1f miles\n",
+					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windspeedMph, visibilityMiles)
 
 				if weatherTime != lastWrittenWeather || config.AlwaysWriteWeather {
 					if err := retry.Do(func() error {
@@ -343,6 +346,8 @@ func main() {
 									"barometric_pressure":             pressureMillibar,
 									"dew_point":                       dewpoint,
 									"wind_speed":                      windspeedMph,
+									"wind_bearing":                    windBearing,
+									"visibility_mi":                   visibilityMiles,
 									"recommended_max_indoor_humidity": indoorHumidityRecommendation(outdoorTemp),
 								},
 								pointTime,
