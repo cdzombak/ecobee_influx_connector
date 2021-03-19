@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"path"
 	"strconv"
@@ -40,7 +41,20 @@ const (
 	thermostatNameTag = "thermostat_name"
 )
 
-func indoorHumidityRecommendation(outdoorTempF float64) int {
+// WindChill calculates the wind chill for the given temperature (in Fahrenheit)
+// and wind speed (in miles/hour). If wind speed is less than 3 mph, or temperature
+// if over 50 degrees, the given temperature is returned - the forumla works
+// below 50 degrees and above 3 mph.
+func WindChill(tempF, windSpeedMph float64) float64 {
+	if tempF > 50.0 || windSpeedMph < 3.0 {
+		return tempF
+	}
+	return 35.74 + (0.6215 * tempF) - (35.75 * math.Pow(windSpeedMph, 0.16)) + (0.4275 * tempF * math.Pow(windSpeedMph, 0.16))
+}
+
+// IndoorHumidityRecommendation returns the maximum recommended indoor relative
+// humidity percentage for the given outdoor temperature (in degrees F).
+func IndoorHumidityRecommendation(outdoorTempF float64) int {
 	if outdoorTempF >= 50 {
 		return 50
 	}
@@ -323,6 +337,7 @@ func main() {
 				windBearing := t.Weather.Forecasts[0].WindBearing
 				visibilityMeters := t.Weather.Forecasts[0].Visibility
 				visibilityMiles := float64(visibilityMeters) / 1609.34
+				windChill := WindChill(outdoorTemp, float64(windspeedMph))
 
 				fmt.Printf("Weather at %s:\n", weatherTime)
 				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\tvisibility: %.1f miles\n",
@@ -348,7 +363,8 @@ func main() {
 									"wind_speed":                      windspeedMph,
 									"wind_bearing":                    windBearing,
 									"visibility_mi":                   visibilityMiles,
-									"recommended_max_indoor_humidity": indoorHumidityRecommendation(outdoorTemp),
+									"recommended_max_indoor_humidity": IndoorHumidityRecommendation(outdoorTemp),
+									"wind_chill_f":                    windChill,
 								},
 								pointTime,
 							))
