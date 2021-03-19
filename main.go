@@ -340,8 +340,8 @@ func main() {
 				windChill := WindChill(outdoorTemp, float64(windspeedMph))
 
 				fmt.Printf("Weather at %s:\n", weatherTime)
-				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\tvisibility: %.1f miles\n",
-					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windspeedMph, visibilityMiles)
+				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\n",
+					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windspeedMph, windChill, visibilityMiles)
 
 				if weatherTime != lastWrittenWeather || config.AlwaysWriteWeather {
 					if err := retry.Do(func() error {
@@ -358,7 +358,8 @@ func main() {
 								map[string]interface{}{ // fields
 									"outdoor_temp":                    outdoorTemp,
 									"outdoor_humidity":                outdoorHumidity,
-									"barometric_pressure":             pressureMillibar,
+									"barometric_pressure_mb":          pressureMillibar,
+									"barometric_pressure_inHg":        float64(pressureMillibar) / 33.864,
 									"dew_point":                       dewpoint,
 									"wind_speed":                      windspeedMph,
 									"wind_bearing":                    windBearing,
