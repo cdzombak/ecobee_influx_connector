@@ -76,7 +76,7 @@ func IndoorHumidityRecommendation(outdoorTempF float64) int {
 	if outdoorTempF >= -10 {
 		return 20
 	}
-	return 25
+	return 15
 }
 
 func main() {
