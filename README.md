@@ -45,6 +45,14 @@ The `work_dir` is where client credentials and (yet to be implemented) last-writ
 9. Run `systemctl daemon-reload && systemctl enable ecobee-influx-connector.service && systemctl start ecobee-influx-connector.service`.
 10. Check the service's status with `systemctl status ecobee-influx-connector.service`.
 
+## Docker
+
+A docker image is also provided that can be configured via environment variables. [View it on Docker Hub](https://hub.docker.com/r/cdzombak/ecobee_influx_connector), or pull it via `docker pull cdzombak/ecobee_influx_connector`.
+
+To use the docker container make sure the path to the `config.json` is provided as a volume with the path `/config`. This location will also be used to store the refresh token.
+
+Example usage: `docker run -v $HOME/.ecobee_influx_connector:/config -it ecobee_influx_connector`
+
 ## License
 
 Apache 2; see `LICENSE` in this repository.
