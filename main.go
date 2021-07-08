@@ -24,8 +24,10 @@ type Config struct {
 	WorkDir            string `json:"work_dir,omitempty"`
 	ThermostatID       string `json:"thermostat_id"`
 	InfluxServer       string `json:"influx_server"`
+	InfluxOrg          string `json:"influx_org,omitempty"`
 	InfluxUser         string `json:"influx_user,omitempty"`
 	InfluxPass         string `json:"influx_password,omitempty"`
+	InfluxToken        string `json:"influx_token,omitempty"`
 	InfluxBucket       string `json:"influx_bucket"`
 	WriteHeatPump1     bool   `json:"write_heat_pump_1"`
 	WriteHeatPump2     bool   `json:"write_heat_pump_2"`
@@ -134,7 +136,9 @@ func main() {
 	const influxTimeout = 3 * time.Second
 	authString := ""
 	if config.InfluxUser != "" || config.InfluxPass != "" {
-		authString = fmt.Sprintf("%s:%s", config.InfluxUser, config.InfluxPass)
+		authString = fmt.Sprintf("%s:%s", config.InfluxUser, config.InfluxPass) 
+	} else if config.InfluxToken != "" {
+		authString = fmt.Sprintf("%s", config.InfluxToken)
 	}
 	influxClient := influxdb2.NewClient(config.InfluxServer, authString)
 	ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
@@ -146,7 +150,7 @@ func main() {
 	if health.Status != "pass" {
 		log.Fatalf("InfluxDB did not pass health check: status %s; message '%s'", health.Status, *health.Message)
 	}
-	influxWriteApi := influxClient.WriteAPIBlocking("", config.InfluxBucket)
+	influxWriteApi := influxClient.WriteAPIBlocking(config.InfluxOrg, config.InfluxBucket)
 	_ = influxWriteApi
 
 	lastWrittenRuntimeInterval := 0
