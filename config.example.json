@@ -6,6 +6,8 @@
   "influx_bucket": "MYHOME",
   "influx_user": "",
   "influx_password": "",
+  "influx_token": "",
+  "influx_org": "",
   "always_write_weather_as_current": false,
   "write_heat_pump_1": false,
   "write_heat_pump_2": false,
