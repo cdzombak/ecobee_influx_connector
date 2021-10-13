@@ -1,6 +1,6 @@
 # Ecobee -> InfluxDB Connector
 
-# Build
+## Build
 
 ```shell
 go build -o ./ecobee_influx_connector .
@@ -24,7 +24,7 @@ env GOOS=linux GOARCH=amd64 go build -o ./ecobee_influx_connector .
 
 You should then be presented with a list of thermostats in your Ecobee account, along with their IDs.
 
-# Configure
+## Configure
 
 Configuration is specified in a JSON file. Create a file (based on the template `config.example.json` stored in this repository) and customize it with your Ecobee API key, thermostat ID, and Influx server.
 
@@ -32,7 +32,7 @@ Use the `write_*` config fields to tell the connector which pieces of equipment 
 
 The `work_dir` is where client credentials and (yet to be implemented) last-written watermarks are stored.
 
-# Install & Run via systemd on Linux
+## Install & Run via systemd on Linux
 
 1. Build the `ecobee_influx_connector` binary per the Build instructions above.
 2. Copy it to `/usr/local/bin` or your preferred location.
@@ -45,7 +45,7 @@ The `work_dir` is where client credentials and (yet to be implemented) last-writ
 9. Run `systemctl daemon-reload && systemctl enable ecobee-influx-connector.service && systemctl start ecobee-influx-connector.service`.
 10. Check the service's status with `systemctl status ecobee-influx-connector.service`.
 
-## Docker
+## Run via Docker
 
 A docker image is also provided that can be configured via environment variables. [View it on Docker Hub](https://hub.docker.com/r/cdzombak/ecobee_influx_connector), or pull it via `docker pull cdzombak/ecobee_influx_connector`.
 
