@@ -1,17 +1,5 @@
 # Ecobee -> InfluxDB Connector
 
-## Build
-
-```shell
-go build -o ./ecobee_influx_connector .
-```
-
-To cross-compile for eg. Linux/amd64:
-
-```shell
-env GOOS=linux GOARCH=amd64 go build -o ./ecobee_influx_connector .
-```
-
 ## Getting Started
 
 1. Register and enable the developer dashboard on your Ecobee account at https://www.ecobee.com/developers/
@@ -32,6 +20,26 @@ Use the `write_*` config fields to tell the connector which pieces of equipment 
 
 The `work_dir` is where client credentials and (yet to be implemented) last-written watermarks are stored.
 
+## Run via Docker
+
+A Docker image is also provided that can be configured via environment variables. [View it on Docker Hub](https://hub.docker.com/r/cdzombak/ecobee_influx_connector), or pull it via `docker pull cdzombak/ecobee_influx_connector`.
+
+To use the docker container make sure the path to the `config.json` is provided as a volume with the path `/config`. This location will also be used to store the refresh token.
+
+Example usage: `docker run -v $HOME/.ecobee_influx_connector:/config -it ecobee_influx_connector`
+
+## Build
+
+```shell
+go build -o ./ecobee_influx_connector .
+```
+
+To cross-compile for eg. Linux/amd64:
+
+```shell
+env GOOS=linux GOARCH=amd64 go build -o ./ecobee_influx_connector .
+```
+
 ## Install & Run via systemd on Linux
 
 1. Build the `ecobee_influx_connector` binary per the Build instructions above.
@@ -44,14 +52,6 @@ The `work_dir` is where client credentials and (yet to be implemented) last-writ
 8. Run `chown root:root /etc/systemd/system/ecobee-influx-connector.service`.
 9. Run `systemctl daemon-reload && systemctl enable ecobee-influx-connector.service && systemctl start ecobee-influx-connector.service`.
 10. Check the service's status with `systemctl status ecobee-influx-connector.service`.
-
-## Run via Docker
-
-A docker image is also provided that can be configured via environment variables. [View it on Docker Hub](https://hub.docker.com/r/cdzombak/ecobee_influx_connector), or pull it via `docker pull cdzombak/ecobee_influx_connector`.
-
-To use the docker container make sure the path to the `config.json` is provided as a volume with the path `/config`. This location will also be used to store the refresh token.
-
-Example usage: `docker run -v $HOME/.ecobee_influx_connector:/config -it ecobee_influx_connector`
 
 ## License
 
