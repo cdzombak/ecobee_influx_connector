@@ -20,23 +20,24 @@ import (
 )
 
 type Config struct {
-	APIKey             string `json:"api_key"`
-	WorkDir            string `json:"work_dir,omitempty"`
-	ThermostatID       string `json:"thermostat_id"`
-	InfluxServer       string `json:"influx_server"`
-	InfluxOrg          string `json:"influx_org,omitempty"`
-	InfluxUser         string `json:"influx_user,omitempty"`
-	InfluxPass         string `json:"influx_password,omitempty"`
-	InfluxToken        string `json:"influx_token,omitempty"`
-	InfluxBucket       string `json:"influx_bucket"`
-	WriteHeatPump1     bool   `json:"write_heat_pump_1"`
-	WriteHeatPump2     bool   `json:"write_heat_pump_2"`
-	WriteAuxHeat1      bool   `json:"write_aux_heat_1"`
-	WriteAuxHeat2      bool   `json:"write_aux_heat_2"`
-	WriteCool1         bool   `json:"write_cool_1"`
-	WriteCool2         bool   `json:"write_cool_2"`
-	WriteHumidifier    bool   `json:"write_humidifier"`
-	AlwaysWriteWeather bool   `json:"always_write_weather_as_current"`
+	APIKey                    string `json:"api_key"`
+	WorkDir                   string `json:"work_dir,omitempty"`
+	ThermostatID              string `json:"thermostat_id"`
+	InfluxServer              string `json:"influx_server"`
+	InfluxOrg                 string `json:"influx_org,omitempty"`
+	InfluxUser                string `json:"influx_user,omitempty"`
+	InfluxPass                string `json:"influx_password,omitempty"`
+	InfluxToken               string `json:"influx_token,omitempty"`
+	InfluxBucket              string `json:"influx_bucket"`
+	InfluxHealthCheckDisabled bool   `json:"influx_health_check_disabled"`
+	WriteHeatPump1            bool   `json:"write_heat_pump_1"`
+	WriteHeatPump2            bool   `json:"write_heat_pump_2"`
+	WriteAuxHeat1             bool   `json:"write_aux_heat_1"`
+	WriteAuxHeat2             bool   `json:"write_aux_heat_2"`
+	WriteCool1                bool   `json:"write_cool_1"`
+	WriteCool2                bool   `json:"write_cool_2"`
+	WriteHumidifier           bool   `json:"write_humidifier"`
+	AlwaysWriteWeather        bool   `json:"always_write_weather_as_current"`
 }
 
 const (
@@ -136,19 +137,21 @@ func main() {
 	const influxTimeout = 3 * time.Second
 	authString := ""
 	if config.InfluxUser != "" || config.InfluxPass != "" {
-		authString = fmt.Sprintf("%s:%s", config.InfluxUser, config.InfluxPass) 
+		authString = fmt.Sprintf("%s:%s", config.InfluxUser, config.InfluxPass)
 	} else if config.InfluxToken != "" {
 		authString = fmt.Sprintf("%s", config.InfluxToken)
 	}
 	influxClient := influxdb2.NewClient(config.InfluxServer, authString)
-	ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
-	defer cancel()
-	health, err := influxClient.Health(ctx)
-	if err != nil {
-		log.Fatalf("failed to check InfluxDB health: %v", err)
-	}
-	if health.Status != "pass" {
-		log.Fatalf("InfluxDB did not pass health check: status %s; message '%s'", health.Status, *health.Message)
+	if !config.InfluxHealthCheckDisabled {
+		ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
+		defer cancel()
+		health, err := influxClient.Health(ctx)
+		if err != nil {
+			log.Fatalf("failed to check InfluxDB health: %v", err)
+		}
+		if health.Status != "pass" {
+			log.Fatalf("InfluxDB did not pass health check: status %s; message '%s'", health.Status, *health.Message)
+		}
 	}
 	influxWriteApi := influxClient.WriteAPIBlocking(config.InfluxOrg, config.InfluxBucket)
 	_ = influxWriteApi
