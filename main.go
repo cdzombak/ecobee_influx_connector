@@ -345,10 +345,12 @@ func main() {
 				visibilityMeters := t.Weather.Forecasts[0].Visibility
 				visibilityMiles := float64(visibilityMeters) / 1609.34
 				windChill := WindChill(outdoorTemp, float64(windspeedMph))
+				weatherSymbol := t.Weather.Forecasts[0].WeatherSymbol
+				sky := t.Weather.Forecasts[0].Sky
 
 				fmt.Printf("Weather at %s:\n", weatherTime)
-				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\n",
-					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windspeedMph, windChill, visibilityMiles)
+				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\nweather symbol: %d\nsky: %d",
+					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windspeedMph, windChill, visibilityMiles, weatherSymbol, sky)
 
 				if weatherTime != lastWrittenWeather || config.AlwaysWriteWeather {
 					if err := retry.Do(func() error {
@@ -373,6 +375,8 @@ func main() {
 									"visibility_mi":                   visibilityMiles,
 									"recommended_max_indoor_humidity": IndoorHumidityRecommendation(outdoorTemp),
 									"wind_chill_f":                    windChill,
+									"weather_symbol":                  weatherSymbol,
+									"sky":                             sky,
 								},
 								pointTime,
 							))
