@@ -194,7 +194,7 @@ func main() {
 					demandMgmtOffset := float64(t.ExtendedRuntime.DmOffset[i]) / 10.0
 					hvacMode := t.ExtendedRuntime.HvacMode[i] // string :(
 					heatPump1RunSec := t.ExtendedRuntime.HeatPump1[i]
-					heatPump2RunSec := t.ExtendedRuntime.HeatPump1[i]
+					heatPump2RunSec := t.ExtendedRuntime.HeatPump2[i]
 					auxHeat1RunSec := t.ExtendedRuntime.AuxHeat1[i]
 					auxHeat2RunSec := t.ExtendedRuntime.AuxHeat2[i]
 					cool1RunSec := t.ExtendedRuntime.Cool1[i]
