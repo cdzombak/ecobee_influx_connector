@@ -53,6 +53,14 @@ env GOOS=linux GOARCH=amd64 go build -o ./ecobee_influx_connector .
 9. Run `systemctl daemon-reload && systemctl enable ecobee-influx-connector.service && systemctl start ecobee-influx-connector.service`.
 10. Check the service's status with `systemctl status ecobee-influx-connector.service`.
 
+## FAQ
+
+### Does the connector support multiple thermostats?
+
+The connector does not directly support multiple thermostats. To support this use case, I'd recommend running multiple copies of the connector. Each copy will need its own working directory and config file, but you should be able to use the same API key for each connector instance.
+
+(If deploying using the "systemd on Linux" instructions, give each connector's service file a unique name, like `ecobee-influx-connector-1.service`, `ecobee-influx-connector-2.service`, and so on.
+
 ## License
 
 Apache 2; see `LICENSE` in this repository.
