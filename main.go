@@ -168,6 +168,48 @@ func main() {
 					return err
 				}
 
+				// Air quality related values are only in the current runtime,
+				// thus they need to be handled outside of the extended runtime section
+				currentRuntimeReportTime, err := time.Parse("2006-01-02 15:04:05", t.Runtime.LastStatusModified)
+				if err != nil {
+					return err
+				}
+
+				if err := retry.Do(func() error {
+					ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
+					defer cancel()
+
+					actualAQAccuracy := t.Runtime.ActualAQAccuracy
+					actualAQScore := t.Runtime.ActualAQScore
+					actualCO2 := t.Runtime.ActualCO2
+					actualVOC := t.Runtime.ActualVOC
+
+					fmt.Printf("Air quality at %s:\n", currentRuntimeReportTime)
+					fmt.Printf("\tcurrent co2: %d\n\tcurrent voc: %d\n",
+						actualCO2, actualVOC)
+
+					fields := map[string]interface{}{
+						"airquality_accuracy": actualAQAccuracy,
+						"airquality_score":    actualAQScore,
+						"co2":                 actualCO2,
+						"voc":                 actualVOC,
+					}
+
+					err := influxWriteApi.WritePoint(ctx,
+						influxdb2.NewPoint(
+							"ecobee_air_quality",
+							map[string]string{thermostatNameTag: t.Name}, // tags
+							fields,
+							currentRuntimeReportTime,
+						))
+					if err != nil {
+						return err
+					}
+					return nil
+				}, retry.Attempts(2)); err != nil {
+					return err
+				}
+
 				latestRuntimeInterval := t.ExtendedRuntime.RuntimeInterval
 				log.Printf("latest runtime interval available is %d\n", latestRuntimeInterval)
 
