@@ -176,6 +176,10 @@ type Runtime struct {
 	DesiredHumidity    int    `json:"desiredHumidity"`
 	DesiredDehumidity  int    `json:"desiredDehumidity"`
 	DesiredFanMode     string `json:"desiredFanMode"`
+	ActualAQAccuracy   int    `json:"actualAQAccuracy"`
+	ActualAQScore      int    `json:"actualAQScore"`
+	ActualCO2          int    `json:"actualCO2"`
+	ActualVOC          int    `json:"actualVOC"`
 	DesiredHeatRange   []int  `json:"desiredHeatRange"`
 	DesiredCoolRange   []int  `json:"desiredCoolRange"`
 }
