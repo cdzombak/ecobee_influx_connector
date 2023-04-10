@@ -8,5 +8,5 @@ require (
 	github.com/golang/glog v1.0.0
 	github.com/influxdata/influxdb-client-go/v2 v2.12.2
 	github.com/influxdata/line-protocol v0.0.0-20210922203350-b1ad95c89adf // indirect
-	golang.org/x/oauth2 v0.5.0
+	golang.org/x/oauth2 v0.7.0
 )
