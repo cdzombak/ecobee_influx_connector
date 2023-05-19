@@ -206,7 +206,7 @@ func main() {
 						return err
 					}
 					return nil
-				}, retry.Attempts(2)); err != nil {
+				}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 					return err
 				}
 
@@ -303,7 +303,7 @@ func main() {
 								return err
 							}
 							return nil
-						}, retry.Attempts(2)); err != nil {
+						}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 							return err
 						}
 					}
@@ -367,7 +367,7 @@ func main() {
 								return err
 							}
 							return nil
-						}, retry.Attempts(2)); err != nil {
+						}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 							return err
 						}
 					}
@@ -427,13 +427,15 @@ func main() {
 						}
 						lastWrittenWeather = weatherTime
 						return nil
-					}, retry.Attempts(2)); err != nil {
+					}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 						return err
 					}
 				}
 
 				return nil
 			},
+			retry.Attempts(3),
+			retry.Delay(5*time.Second),
 		); err != nil {
 			log.Fatal(err)
 		}
