@@ -37,6 +37,7 @@ type Config struct {
 	WriteCool1                bool   `json:"write_cool_1"`
 	WriteCool2                bool   `json:"write_cool_2"`
 	WriteHumidifier           bool   `json:"write_humidifier"`
+	WriteDehumidifier         bool   `json:"write_dehumidifier"`
 	AlwaysWriteWeather        bool   `json:"always_write_weather_as_current"`
 }
 
@@ -243,14 +244,15 @@ func main() {
 					cool2RunSec := t.ExtendedRuntime.Cool2[i]
 					fanRunSec := t.ExtendedRuntime.Fan[i]
 					humidifierRunSec := t.ExtendedRuntime.Humidifier[i]
+					dehumidifierRunSec := t.ExtendedRuntime.Dehumidifier[i]
 
 					fmt.Printf("Thermostat conditions at %s:\n", reportTime)
 					fmt.Printf("\tcurrent temperature: %.1f degF\n\theat set point: %.1f degF\n\tcool set point: %.1f degF\n\tdemand management offset: %.1f\n",
 						currentTemp, heatSetPoint, coolSetPoint, demandMgmtOffset)
 					fmt.Printf("\tcurrent humidity: %d%%\n\thumidity set point: %d\n\tHVAC mode: %s\n",
 						currentHumidity, humiditySetPoint, hvacMode)
-					fmt.Printf("\tfan runtime: %d seconds\n\thumidifier runtime: %d seconds\n",
-						fanRunSec, humidifierRunSec)
+					fmt.Printf("\tfan runtime: %d seconds\n\thumidifier runtime: %d seconds\n\tdehumidifier runtime: %d seconds\n",
+						fanRunSec, humidifierRunSec, dehumidifierRunSec)
 					fmt.Printf("\theat pump 1 runtime: %d seconds\n\theat pump 2 runtime: %d seconds\n",
 						heatPump1RunSec, heatPump2RunSec)
 					fmt.Printf("\theat 1 runtime: %d seconds\n\theat 2 runtime: %d seconds\n",
@@ -270,9 +272,16 @@ func main() {
 								"demand_mgmt_offset": demandMgmtOffset,
 								"fan_run_time":       fanRunSec,
 							}
-							if config.WriteHumidifier {
+							if config.WriteHumidifier || config.WriteDehumidifier {
 								fields["humidity_set_point"] = humiditySetPoint
+							}
+							
+							if config.WriteHumidifier {
 								fields["humidifier_run_time"] = humidifierRunSec
+							}
+							
+							if config.WriteDehumidifier {
+								fields["dehumidifier_run_time"] = dehumidifierRunSec
 							}
 							if config.WriteAuxHeat1 {
 								fields["aux_heat_1_run_time"] = auxHeat1RunSec
