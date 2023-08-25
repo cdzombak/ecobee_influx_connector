@@ -237,11 +237,11 @@ func main() {
 							if config.WriteHumidifier || config.WriteDehumidifier {
 								fields["humidity_set_point"] = humiditySetPoint
 							}
-							
+
 							if config.WriteHumidifier {
 								fields["humidifier_run_time"] = humidifierRunSec
 							}
-							
+
 							if config.WriteDehumidifier {
 								fields["dehumidifier_run_time"] = dehumidifierRunSec
 							}
