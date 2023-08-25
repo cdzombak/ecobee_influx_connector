@@ -353,7 +353,7 @@ func main() {
 				pressureMillibar := t.Weather.Forecasts[0].Pressure
 				outdoorHumidity := t.Weather.Forecasts[0].RelativeHumidity
 				dewpoint := float64(t.Weather.Forecasts[0].Dewpoint) / 10.0
-				windspeedMph := t.Weather.Forecasts[0].WindSpeed
+				windSpeedMph := t.Weather.Forecasts[0].WindSpeed
 				windBearing := t.Weather.Forecasts[0].WindBearing
 				visibilityMeters := t.Weather.Forecasts[0].Visibility
 				visibilityMiles := float64(visibilityMeters) / 1609.34
@@ -363,7 +363,7 @@ func main() {
 
 				fmt.Printf("Weather at %s:\n", weatherTime)
 				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\nweather symbol: %d\nsky: %d",
-					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windspeedMph, windChill, visibilityMiles, weatherSymbol, sky)
+					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windSpeedMph, windChill, visibilityMiles, weatherSymbol, sky)
 
 				if weatherTime != lastWrittenWeather || config.AlwaysWriteWeather {
 					if err := retry.Do(func() error {
@@ -383,7 +383,7 @@ func main() {
 									"barometric_pressure_mb":          pressureMillibar,
 									"barometric_pressure_inHg":        float64(pressureMillibar) / 33.864,
 									"dew_point":                       dewpoint,
-									"wind_speed":                      windspeedMph,
+									"wind_speed":                      windSpeedMph,
 									"wind_bearing":                    windBearing,
 									"visibility_mi":                   visibilityMiles,
 									"recommended_max_indoor_humidity": libwx.IndoorHumidityRecommendationF(libwx.TempF(outdoorTemp)),
