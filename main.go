@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -59,7 +58,7 @@ func main() {
 	}
 
 	config := Config{}
-	cfgBytes, err := ioutil.ReadFile(*configFile)
+	cfgBytes, err := os.ReadFile(*configFile)
 	if err != nil {
 		log.Fatalf("Unable to read config file '%s': %s", *configFile, err)
 	}
