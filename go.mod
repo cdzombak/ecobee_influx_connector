@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/avast/retry-go v3.0.0+incompatible
+	github.com/cdzombak/libwx v0.0.1 // indirect
 	github.com/deepmap/oapi-codegen v1.12.4 // indirect
 	github.com/golang/glog v1.0.0
 	github.com/influxdata/influxdb-client-go/v2 v2.12.2
