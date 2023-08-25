@@ -42,7 +42,10 @@ type Config struct {
 }
 
 const (
-	thermostatNameTag = "thermostat_name"
+	thermostatNameTag            = "thermostat_name"
+	source                       = "ecobee"
+	sourceTag                    = "data_source"
+	ecobeeWeatherMeasurementName = "ecobee_weather"
 )
 
 func main() {
@@ -375,8 +378,11 @@ func main() {
 						}
 						err := influxWriteApi.WritePoint(ctx,
 							influxdb2.NewPoint(
-								"ecobee_weather",
-								map[string]string{thermostatNameTag: t.Name}, // tags
+								ecobeeWeatherMeasurementName,
+								map[string]string{ // tags
+									thermostatNameTag: t.Name,
+									sourceTag:         source,
+								},
 								map[string]interface{}{ // fields
 									"outdoor_temp":                    outdoorTemp,
 									"outdoor_humidity":                outdoorHumidity,
