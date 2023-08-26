@@ -13,7 +13,7 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/cdzombak/libwx"
-	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2"
 
 	"ecobee_influx_connector/ecobee" // taken from https://github.com/rspier/go-ecobee and lightly customized
 )
