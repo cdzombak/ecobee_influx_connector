@@ -16,5 +16,6 @@
   "write_aux_heat_2": false,
   "write_cool_1": true,
   "write_cool_2": false,
-  "write_humidifier": false
+  "write_humidifier": false,
+  "temperature_units": "F"
 }
