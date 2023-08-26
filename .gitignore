@@ -1,2 +1,4 @@
 .idea/
 out/
+config/
+ecobee_influx_connector

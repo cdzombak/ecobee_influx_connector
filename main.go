@@ -13,7 +13,7 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/cdzombak/libwx"
-	"github.com/influxdata/influxdb-client-go/v2"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 
 	"ecobee_influx_connector/ecobee" // taken from https://github.com/rspier/go-ecobee and lightly customized
 )
@@ -38,6 +38,7 @@ type Config struct {
 	WriteHumidifier           bool   `json:"write_humidifier"`
 	WriteDehumidifier         bool   `json:"write_dehumidifier"`
 	AlwaysWriteWeather        bool   `json:"always_write_weather_as_current"`
+	TemperatureUnits          string `json:"temperature_units"`
 }
 
 const (
@@ -125,6 +126,14 @@ func main() {
 	lastWrittenWeather := time.Time{}
 	lastWrittenSensors := time.Time{}
 
+	// Converts default Fahrenheit to Celsius based on config.json
+	temperatureConverter := func(temp float64, units string) float64 {
+		if units == "C" {
+			return (temp - 32) * 5 / 9 // Fahrenheit to Celsius conversion
+		}
+		return temp // Default to Fahrenheit
+	}
+
 	doUpdate := func() {
 		if err := retry.Do(
 			func() error {
@@ -193,10 +202,10 @@ func main() {
 						reportTime = reportTime.Add(5 * time.Minute)
 					}
 
-					currentTemp := float64(t.ExtendedRuntime.ActualTemperature[i]) / 10.0
+					currentTemp := temperatureConverter(float64(t.ExtendedRuntime.ActualTemperature[i])/10.0, config.TemperatureUnits)
 					currentHumidity := t.ExtendedRuntime.ActualHumidity[i]
-					heatSetPoint := float64(t.ExtendedRuntime.DesiredHeat[i]) / 10.0
-					coolSetPoint := float64(t.ExtendedRuntime.DesiredCool[i]) / 10.0
+					heatSetPoint := temperatureConverter(float64(t.ExtendedRuntime.DesiredHeat[i])/10.0, config.TemperatureUnits)
+					coolSetPoint := temperatureConverter(float64(t.ExtendedRuntime.DesiredCool[i])/10.0, config.TemperatureUnits)
 					humiditySetPoint := t.ExtendedRuntime.DesiredHumidity[i]
 					demandMgmtOffset := float64(t.ExtendedRuntime.DmOffset[i]) / 10.0
 					hvacMode := t.ExtendedRuntime.HvacMode[i] // string :(
@@ -211,7 +220,7 @@ func main() {
 					dehumidifierRunSec := t.ExtendedRuntime.Dehumidifier[i]
 
 					fmt.Printf("Thermostat conditions at %s:\n", reportTime)
-					fmt.Printf("\tcurrent temperature: %.1f degF\n\theat set point: %.1f degF\n\tcool set point: %.1f degF\n\tdemand management offset: %.1f\n",
+					fmt.Printf("\tcurrent temperature: %.1f deg\n\theat set point: %.1f deg\n\tcool set point: %.1f deg\n\tdemand management offset: %.1f\n",
 						currentTemp, heatSetPoint, coolSetPoint, demandMgmtOffset)
 					fmt.Printf("\tcurrent humidity: %d%%\n\thumidity set point: %d\n\tHVAC mode: %s\n",
 						currentHumidity, humiditySetPoint, hvacMode)
@@ -229,10 +238,10 @@ func main() {
 							ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
 							defer cancel()
 							fields := map[string]interface{}{
-								"temperature":        currentTemp,
+								"temperature":        temperatureConverter(currentTemp, "C"),
 								"humidity":           currentHumidity,
-								"heat_set_point":     heatSetPoint,
-								"cool_set_point":     coolSetPoint,
+								"heat_set_point":     temperatureConverter(heatSetPoint, "C"),
+								"cool_set_point":     temperatureConverter(coolSetPoint, "C"),
 								"demand_mgmt_offset": demandMgmtOffset,
 								"fan_run_time":       fanRunSec,
 							}
@@ -298,7 +307,7 @@ func main() {
 							if err != nil {
 								log.Printf("error reading temp '%s' for sensor %s: %s", c.Value, sensor.Name, err)
 							} else {
-								temp = float64(tempInt) / 10.0
+								temp = temperatureConverter(float64(tempInt)/10.0, config.TemperatureUnits)
 							}
 						} else if c.Type == "occupancy" {
 							presenceSupported = true
@@ -306,7 +315,7 @@ func main() {
 						}
 					}
 					fmt.Printf("Sensor '%s' at %s:\n", name, sensorTime)
-					fmt.Printf("\ttemperature: %.1f degF\n", temp)
+					fmt.Printf("\ttemperature: %.1f deg\n", temp)
 					if presenceSupported {
 						fmt.Printf("\toccupied: %t\n", presence)
 					}
@@ -351,10 +360,10 @@ func main() {
 				if err != nil {
 					return err
 				}
-				outdoorTemp := float64(t.Weather.Forecasts[0].Temperature) / 10.0
+				outdoorTemp := temperatureConverter(float64(t.Weather.Forecasts[0].Temperature)/10.0, config.TemperatureUnits)
 				pressureMillibar := t.Weather.Forecasts[0].Pressure
 				outdoorHumidity := t.Weather.Forecasts[0].RelativeHumidity
-				dewpoint := float64(t.Weather.Forecasts[0].Dewpoint) / 10.0
+				dewpoint := temperatureConverter(float64(t.Weather.Forecasts[0].Dewpoint)/10.0, config.TemperatureUnits)
 				windSpeedMph := t.Weather.Forecasts[0].WindSpeed
 				windBearing := t.Weather.Forecasts[0].WindBearing
 				visibilityMeters := t.Weather.Forecasts[0].Visibility
@@ -364,7 +373,7 @@ func main() {
 				sky := t.Weather.Forecasts[0].Sky
 
 				fmt.Printf("Weather at %s:\n", weatherTime)
-				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\nweather symbol: %d\nsky: %d",
+				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f deg\n\twind: %d at %d mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\nweather symbol: %d\nsky: %d",
 					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windSpeedMph, windChill, visibilityMiles, weatherSymbol, sky)
 
 				if weatherTime != lastWrittenWeather || config.AlwaysWriteWeather {
@@ -383,11 +392,11 @@ func main() {
 									sourceTag:         source,
 								},
 								map[string]interface{}{ // fields
-									"outdoor_temp":                    outdoorTemp,
+									"outdoor_temp":                    temperatureConverter(outdoorTemp, "C"),
 									"outdoor_humidity":                outdoorHumidity,
 									"barometric_pressure_mb":          pressureMillibar,
 									"barometric_pressure_inHg":        float64(pressureMillibar) / 33.864,
-									"dew_point":                       dewpoint,
+									"dew_point":                       temperatureConverter(dewpoint, "C"),
 									"wind_speed":                      windSpeedMph,
 									"wind_bearing":                    windBearing,
 									"visibility_mi":                   visibilityMiles,
