@@ -219,19 +219,35 @@ func main() {
 					humidifierRunSec := t.ExtendedRuntime.Humidifier[i]
 					dehumidifierRunSec := t.ExtendedRuntime.Dehumidifier[i]
 
-					fmt.Printf("Thermostat conditions at %s:\n", reportTime)
-					fmt.Printf("\tcurrent temperature: %.1f deg\n\theat set point: %.1f deg\n\tcool set point: %.1f deg\n\tdemand management offset: %.1f\n",
-						currentTemp, heatSetPoint, coolSetPoint, demandMgmtOffset)
-					fmt.Printf("\tcurrent humidity: %d%%\n\thumidity set point: %d\n\tHVAC mode: %s\n",
-						currentHumidity, humiditySetPoint, hvacMode)
-					fmt.Printf("\tfan runtime: %d seconds\n\thumidifier runtime: %d seconds\n\tdehumidifier runtime: %d seconds\n",
-						fanRunSec, humidifierRunSec, dehumidifierRunSec)
-					fmt.Printf("\theat pump 1 runtime: %d seconds\n\theat pump 2 runtime: %d seconds\n",
-						heatPump1RunSec, heatPump2RunSec)
-					fmt.Printf("\theat 1 runtime: %d seconds\n\theat 2 runtime: %d seconds\n",
-						auxHeat1RunSec, auxHeat2RunSec)
-					fmt.Printf("\tcool 1 runtime: %d seconds\n\tcool 2 runtime: %d seconds\n",
-						cool1RunSec, cool2RunSec)
+					if config.TemperatureUnits == "C" {
+						fmt.Printf("Thermostat conditions at %s:\n", reportTime)
+						fmt.Printf("\tcurrent temperature: %.1f degC\n\theat set point: %.1f degC\n\tcool set point: %.1f degC\n\tdemand management offset: %.1f\n",
+							currentTemp, heatSetPoint, coolSetPoint, demandMgmtOffset)
+						fmt.Printf("\tcurrent humidity: %d%%\n\thumidity set point: %d\n\tHVAC mode: %s\n",
+							currentHumidity, humiditySetPoint, hvacMode)
+						fmt.Printf("\tfan runtime: %d seconds\n\thumidifier runtime: %d seconds\n\tdehumidifier runtime: %d seconds\n",
+							fanRunSec, humidifierRunSec, dehumidifierRunSec)
+						fmt.Printf("\theat pump 1 runtime: %d seconds\n\theat pump 2 runtime: %d seconds\n",
+							heatPump1RunSec, heatPump2RunSec)
+						fmt.Printf("\theat 1 runtime: %d seconds\n\theat 2 runtime: %d seconds\n",
+							auxHeat1RunSec, auxHeat2RunSec)
+						fmt.Printf("\tcool 1 runtime: %d seconds\n\tcool 2 runtime: %d seconds\n",
+							cool1RunSec, cool2RunSec)
+					} else {
+						fmt.Printf("Thermostat conditions at %s:\n", reportTime)
+						fmt.Printf("\tcurrent temperature: %.1f degF\n\theat set point: %.1f degF\n\tcool set point: %.1f degF\n\tdemand management offset: %.1f\n",
+							currentTemp, heatSetPoint, coolSetPoint, demandMgmtOffset)
+						fmt.Printf("\tcurrent humidity: %d%%\n\thumidity set point: %d\n\tHVAC mode: %s\n",
+							currentHumidity, humiditySetPoint, hvacMode)
+						fmt.Printf("\tfan runtime: %d seconds\n\thumidifier runtime: %d seconds\n\tdehumidifier runtime: %d seconds\n",
+							fanRunSec, humidifierRunSec, dehumidifierRunSec)
+						fmt.Printf("\theat pump 1 runtime: %d seconds\n\theat pump 2 runtime: %d seconds\n",
+							heatPump1RunSec, heatPump2RunSec)
+						fmt.Printf("\theat 1 runtime: %d seconds\n\theat 2 runtime: %d seconds\n",
+							auxHeat1RunSec, auxHeat2RunSec)
+						fmt.Printf("\tcool 1 runtime: %d seconds\n\tcool 2 runtime: %d seconds\n",
+							cool1RunSec, cool2RunSec)
+					}
 
 					if latestRuntimeInterval != lastWrittenRuntimeInterval {
 						if err := retry.Do(func() error {
@@ -314,8 +330,15 @@ func main() {
 							presence = c.Value == "true"
 						}
 					}
+
 					fmt.Printf("Sensor '%s' at %s:\n", name, sensorTime)
-					fmt.Printf("\ttemperature: %.1f deg\n", temp)
+
+					if config.TemperatureUnits == "C" {
+						fmt.Printf("\ttemperature: %.1f degC\n", temp)
+					} else {
+						fmt.Printf("\ttemperature: %.1f degF\n", temp)
+					}
+
 					if presenceSupported {
 						fmt.Printf("\toccupied: %t\n", presence)
 					}
@@ -373,8 +396,14 @@ func main() {
 				sky := t.Weather.Forecasts[0].Sky
 
 				fmt.Printf("Weather at %s:\n", weatherTime)
-				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f deg\n\twind: %d at %d mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\nweather symbol: %d\nsky: %d",
-					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windSpeedMph, windChill, visibilityMiles, weatherSymbol, sky)
+
+				if config.TemperatureUnits == "C" {
+					fmt.Printf("\ttemperature: %.1f degC\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degC\n\twind: %d at %d mph\n\twind chill: %.1f degC\n\tvisibility: %.1f miles\nweather symbol: %d\nsky: %d",
+						outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windSpeedMph, windChill, visibilityMiles, weatherSymbol, sky)
+				} else {
+					fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\nweather symbol: %d\nsky: %d",
+						outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windSpeedMph, windChill, visibilityMiles, weatherSymbol, sky)
+				}
 
 				if weatherTime != lastWrittenWeather || config.AlwaysWriteWeather {
 					if err := retry.Do(func() error {

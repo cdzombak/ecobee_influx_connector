@@ -1,0 +1,9 @@
+---
+version: "3.9"
+services:
+  ecobee_influx_connector:
+    image: cdzombak/ecobee_influx_connector:latest
+    container_name: ecobee_influx_connector
+    restart: always
+    volumes:
+      - $DOCKERPATH/ecobee_influx_connector:/config
