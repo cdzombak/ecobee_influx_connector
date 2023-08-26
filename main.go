@@ -13,7 +13,7 @@ import (
 
 	"github.com/avast/retry-go"
 	"github.com/cdzombak/libwx"
-	"github.com/influxdata/influxdb-client-go/v2"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 
 	"ecobee_influx_connector/ecobee" // taken from https://github.com/rspier/go-ecobee and lightly customized
 )
@@ -254,10 +254,10 @@ func main() {
 							ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
 							defer cancel()
 							fields := map[string]interface{}{
-								"temperature":        temperatureConverter(currentTemp, "C"),
+								"temperature":        currentTemp,
 								"humidity":           currentHumidity,
-								"heat_set_point":     temperatureConverter(heatSetPoint, "C"),
-								"cool_set_point":     temperatureConverter(coolSetPoint, "C"),
+								"heat_set_point":     heatSetPoint,
+								"cool_set_point":     coolSetPoint,
 								"demand_mgmt_offset": demandMgmtOffset,
 								"fan_run_time":       fanRunSec,
 							}
@@ -421,11 +421,11 @@ func main() {
 									sourceTag:         source,
 								},
 								map[string]interface{}{ // fields
-									"outdoor_temp":                    temperatureConverter(outdoorTemp, "C"),
+									"outdoor_temp":                    outdoorTemp,
 									"outdoor_humidity":                outdoorHumidity,
 									"barometric_pressure_mb":          pressureMillibar,
 									"barometric_pressure_inHg":        float64(pressureMillibar) / 33.864,
-									"dew_point":                       temperatureConverter(dewpoint, "C"),
+									"dew_point":                       dewpoint,
 									"wind_speed":                      windSpeedMph,
 									"wind_bearing":                    windBearing,
 									"visibility_mi":                   visibilityMiles,
