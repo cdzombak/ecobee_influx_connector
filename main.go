@@ -391,7 +391,7 @@ func main() {
 									"wind_speed":                      windSpeedMph,
 									"wind_bearing":                    windBearing,
 									"visibility_mi":                   visibilityMiles,
-									"recommended_max_indoor_humidity": libwx.IndoorHumidityRecommendationF(libwx.TempF(outdoorTemp)),
+									"recommended_max_indoor_humidity": int(libwx.IndoorHumidityRecommendationF(libwx.TempF(outdoorTemp))),
 									"wind_chill_f":                    windChill,
 									"weather_symbol":                  weatherSymbol,
 									"sky":                             sky,
