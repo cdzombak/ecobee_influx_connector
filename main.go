@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go"
-	"github.com/cdzombak/libwx"
+	wx "github.com/cdzombak/libwx"
 	"github.com/influxdata/influxdb-client-go/v2"
 
 	"ecobee_influx_connector/ecobee" // taken from https://github.com/rspier/go-ecobee and lightly customized
@@ -359,7 +359,7 @@ func main() {
 				windBearing := t.Weather.Forecasts[0].WindBearing
 				visibilityMeters := t.Weather.Forecasts[0].Visibility
 				visibilityMiles := float64(visibilityMeters) / 1609.34
-				windChill := libwx.WindChillF(libwx.TempF(outdoorTemp), float64(windSpeedMph))
+				windChill := wx.WindChillF(wx.TempF(outdoorTemp), wx.SpeedMph(windSpeedMph)).Unwrap()
 				weatherSymbol := t.Weather.Forecasts[0].WeatherSymbol
 				sky := t.Weather.Forecasts[0].Sky
 
@@ -391,7 +391,7 @@ func main() {
 									"wind_speed":                      windSpeedMph,
 									"wind_bearing":                    windBearing,
 									"visibility_mi":                   visibilityMiles,
-									"recommended_max_indoor_humidity": int(libwx.IndoorHumidityRecommendationF(libwx.TempF(outdoorTemp))),
+									"recommended_max_indoor_humidity": wx.IndoorHumidityRecommendationF(wx.TempF(outdoorTemp)).Unwrap(),
 									"wind_chill_f":                    windChill,
 									"weather_symbol":                  weatherSymbol,
 									"sky":                             sky,

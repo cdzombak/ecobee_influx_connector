@@ -6,6 +6,7 @@ toolchain go1.21.0
 
 require (
 	github.com/avast/retry-go v3.0.0+incompatible
+	github.com/cdzombak/libwx v1.0.1
 	github.com/golang/glog v1.1.2
 	github.com/influxdata/influxdb-client-go/v2 v2.12.3
 	golang.org/x/oauth2 v0.11.0
@@ -13,7 +14,6 @@ require (
 
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/cdzombak/libwx v0.0.1 // indirect
 	github.com/deepmap/oapi-codegen v1.12.4 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
