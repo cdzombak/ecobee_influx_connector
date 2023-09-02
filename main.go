@@ -134,7 +134,7 @@ func main() {
 				}
 
 				// Air quality related values are only in the current runtime,
-				// thus they need to be handled outside of the extended runtime section
+				// thus they need to be handled outside the extended runtime section
 				currentRuntimeReportTime, err := time.Parse("2006-01-02 15:04:05", t.Runtime.LastStatusModified)
 				if err != nil {
 					return err
