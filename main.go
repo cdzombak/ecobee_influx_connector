@@ -193,12 +193,12 @@ func main() {
 						reportTime = reportTime.Add(5 * time.Minute)
 					}
 
-					currentTemp := float64(t.ExtendedRuntime.ActualTemperature[i]) / 10.0
+					currentTemp := wx.TempF(float64(t.ExtendedRuntime.ActualTemperature[i]) / 10.0)
 					currentHumidity := t.ExtendedRuntime.ActualHumidity[i]
-					heatSetPoint := float64(t.ExtendedRuntime.DesiredHeat[i]) / 10.0
-					coolSetPoint := float64(t.ExtendedRuntime.DesiredCool[i]) / 10.0
+					heatSetPoint := wx.TempF(float64(t.ExtendedRuntime.DesiredHeat[i]) / 10.0)
+					coolSetPoint := wx.TempF(float64(t.ExtendedRuntime.DesiredCool[i]) / 10.0)
 					humiditySetPoint := t.ExtendedRuntime.DesiredHumidity[i]
-					demandMgmtOffset := float64(t.ExtendedRuntime.DmOffset[i]) / 10.0
+					demandMgmtOffset := wx.TempF(float64(t.ExtendedRuntime.DmOffset[i]) / 10.0)
 					hvacMode := t.ExtendedRuntime.HvacMode[i] // string :(
 					heatPump1RunSec := t.ExtendedRuntime.HeatPump1[i]
 					heatPump2RunSec := t.ExtendedRuntime.HeatPump2[i]
@@ -211,8 +211,10 @@ func main() {
 					dehumidifierRunSec := t.ExtendedRuntime.Dehumidifier[i]
 
 					fmt.Printf("Thermostat conditions at %s:\n", reportTime)
-					fmt.Printf("\tcurrent temperature: %.1f degF\n\theat set point: %.1f degF\n\tcool set point: %.1f degF\n\tdemand management offset: %.1f\n",
-						currentTemp, heatSetPoint, coolSetPoint, demandMgmtOffset)
+					fmt.Printf("\tcurrent temperature: %.1f degF (%.1f degC)\n\theat set point: %.1f degF (%.1f degC)"+
+						"\n\tcool set point: %.1f degF (%.1f degC)\n\tdemand management offset: %.1f (%.1f degC)\n",
+						currentTemp, currentTemp.C(), heatSetPoint, heatSetPoint.C(),
+						coolSetPoint, coolSetPoint.C(), demandMgmtOffset, demandMgmtOffset.C())
 					fmt.Printf("\tcurrent humidity: %d%%\n\thumidity set point: %d\n\tHVAC mode: %s\n",
 						currentHumidity, humiditySetPoint, hvacMode)
 					fmt.Printf("\tfan runtime: %d seconds\n\thumidifier runtime: %d seconds\n\tdehumidifier runtime: %d seconds\n",
@@ -229,12 +231,20 @@ func main() {
 							ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
 							defer cancel()
 							fields := map[string]interface{}{
-								"temperature":        currentTemp,
-								"humidity":           currentHumidity,
-								"heat_set_point":     heatSetPoint,
-								"cool_set_point":     coolSetPoint,
-								"demand_mgmt_offset": demandMgmtOffset,
-								"fan_run_time":       fanRunSec,
+								"temperature":          currentTemp.Unwrap(),
+								"temperature_f":        currentTemp.Unwrap(),
+								"temperature_c":        currentTemp.C().Unwrap(),
+								"humidity":             currentHumidity,
+								"heat_set_point":       heatSetPoint.Unwrap(),
+								"heat_set_point_f":     heatSetPoint.Unwrap(),
+								"heat_set_point_c":     heatSetPoint.C().Unwrap(),
+								"cool_set_point":       coolSetPoint.Unwrap(),
+								"cool_set_point_f":     coolSetPoint.Unwrap(),
+								"cool_set_point_c":     coolSetPoint.C().Unwrap(),
+								"demand_mgmt_offset":   demandMgmtOffset.Unwrap(),
+								"demand_mgmt_offset_f": demandMgmtOffset.Unwrap(),
+								"demand_mgmt_offset_c": demandMgmtOffset.C().Unwrap(),
+								"fan_run_time":         fanRunSec,
 							}
 							if config.WriteHumidifier || config.WriteDehumidifier {
 								fields["humidity_set_point"] = humiditySetPoint
@@ -268,7 +278,7 @@ func main() {
 							err := influxWriteApi.WritePoint(ctx,
 								influxdb2.NewPoint(
 									"ecobee_runtime",
-									map[string]string{thermostatNameTag: t.Name}, // tags
+									map[string]string{thermostatNameTag: t.Name},
 									fields,
 									reportTime,
 								))
@@ -290,7 +300,7 @@ func main() {
 				}
 				for _, sensor := range t.RemoteSensors {
 					name := sensor.Name
-					var temp float64
+					var temp wx.TempF
 					var presence, presenceSupported bool
 					for _, c := range sensor.Capability {
 						if c.Type == "temperature" {
@@ -298,7 +308,7 @@ func main() {
 							if err != nil {
 								log.Printf("error reading temp '%s' for sensor %s: %s", c.Value, sensor.Name, err)
 							} else {
-								temp = float64(tempInt) / 10.0
+								temp = wx.TempF(float64(tempInt) / 10.0)
 							}
 						} else if c.Type == "occupancy" {
 							presenceSupported = true
@@ -306,12 +316,13 @@ func main() {
 						}
 					}
 					fmt.Printf("Sensor '%s' at %s:\n", name, sensorTime)
-					fmt.Printf("\ttemperature: %.1f degF\n", temp)
+					fmt.Printf("\ttemperature: %.1f degF (%.1f degC)\n", temp, temp.C())
 					if presenceSupported {
 						fmt.Printf("\toccupied: %t\n", presence)
 					}
 
 					if temp == 0.0 {
+						// no temp reading from this sensor, so skip writing it to Influx
 						continue
 					}
 
@@ -320,7 +331,9 @@ func main() {
 							ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
 							defer cancel()
 							fields := map[string]interface{}{
-								"temperature": temp,
+								"temperature":   temp.Unwrap(),
+								"temperature_f": temp.Unwrap(),
+								"temperature_c": temp.C().Unwrap(),
 							}
 							if presenceSupported {
 								fields["occupied"] = presence
@@ -351,21 +364,23 @@ func main() {
 				if err != nil {
 					return err
 				}
-				outdoorTemp := float64(t.Weather.Forecasts[0].Temperature) / 10.0
-				pressureMillibar := t.Weather.Forecasts[0].Pressure
-				outdoorHumidity := t.Weather.Forecasts[0].RelativeHumidity
-				dewpoint := float64(t.Weather.Forecasts[0].Dewpoint) / 10.0
-				windSpeedMph := t.Weather.Forecasts[0].WindSpeed
+				outdoorTemp := wx.TempF(float64(t.Weather.Forecasts[0].Temperature) / 10.0)
+				pressureMillibar := wx.PressureMb(t.Weather.Forecasts[0].Pressure)
+				outdoorHumidity := wx.ClampedRelHumidity(t.Weather.Forecasts[0].RelativeHumidity)
+				dewpoint := wx.TempF(float64(t.Weather.Forecasts[0].Dewpoint) / 10.0)
+				windSpeedMph := wx.SpeedMph(t.Weather.Forecasts[0].WindSpeed)
 				windBearing := t.Weather.Forecasts[0].WindBearing
-				visibilityMeters := t.Weather.Forecasts[0].Visibility
-				visibilityMiles := float64(visibilityMeters) / 1609.34
-				windChill := wx.WindChillF(wx.TempF(outdoorTemp), wx.SpeedMph(windSpeedMph)).Unwrap()
+				visibilityMeters := wx.Meter(t.Weather.Forecasts[0].Visibility)
+				visibilityMiles := visibilityMeters.Miles()
+				windChill := wx.WindChillF(outdoorTemp, windSpeedMph)
 				weatherSymbol := t.Weather.Forecasts[0].WeatherSymbol
 				sky := t.Weather.Forecasts[0].Sky
 
 				fmt.Printf("Weather at %s:\n", weatherTime)
-				fmt.Printf("\ttemperature: %.1f degF\n\tpressure: %d mb\n\thumidity: %d%%\n\tdew point: %.1f degF\n\twind: %d at %d mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\nweather symbol: %d\nsky: %d",
-					outdoorTemp, pressureMillibar, outdoorHumidity, dewpoint, windBearing, windSpeedMph, windChill, visibilityMiles, weatherSymbol, sky)
+				fmt.Printf("\ttemperature: %.1f degF (%.1f degC)\n\tpressure: %.0f mb\n\thumidity: %d%%\n\tdew point: %.1f degF (%.1f degC)",
+					outdoorTemp, outdoorTemp.C(), pressureMillibar, outdoorHumidity, dewpoint, dewpoint.C())
+				fmt.Printf("\n\twind: %d at %.0f mph\n\twind chill: %.1f degF\n\tvisibility: %.1f miles\nweather symbol: %d\nsky: %d",
+					windBearing, windSpeedMph, windChill, visibilityMiles, weatherSymbol, sky)
 
 				if weatherTime != lastWrittenWeather || config.AlwaysWriteWeather {
 					if err := retry.Do(func() error {
@@ -383,16 +398,23 @@ func main() {
 									sourceTag:         source,
 								},
 								map[string]interface{}{ // fields
-									"outdoor_temp":                    outdoorTemp,
-									"outdoor_humidity":                outdoorHumidity,
-									"barometric_pressure_mb":          pressureMillibar,
-									"barometric_pressure_inHg":        float64(pressureMillibar) / 33.864,
-									"dew_point":                       dewpoint,
-									"wind_speed":                      windSpeedMph,
+									"outdoor_temp":                    outdoorTemp.Unwrap(),
+									"outdoor_temp_f":                  outdoorTemp.Unwrap(),
+									"outdoor_temp_c":                  outdoorTemp.C().Unwrap(),
+									"outdoor_humidity":                outdoorHumidity.Unwrap(),
+									"barometric_pressure_mb":          pressureMillibar.Unwrap(),
+									"barometric_pressure_inHg":        pressureMillibar.InHg().Unwrap(),
+									"dew_point":                       dewpoint.Unwrap(),
+									"dew_point_f":                     dewpoint.Unwrap(),
+									"dew_point_c":                     dewpoint.C().Unwrap(),
+									"wind_speed":                      windSpeedMph.Unwrap(),
+									"wind_speed_mph":                  windSpeedMph.Unwrap(),
 									"wind_bearing":                    windBearing,
-									"visibility_mi":                   visibilityMiles,
-									"recommended_max_indoor_humidity": wx.IndoorHumidityRecommendationF(wx.TempF(outdoorTemp)).Unwrap(),
-									"wind_chill_f":                    windChill,
+									"visibility_mi":                   visibilityMiles.Unwrap(),
+									"visibility_km":                   visibilityMiles.Km().Unwrap(),
+									"recommended_max_indoor_humidity": wx.IndoorHumidityRecommendationF(outdoorTemp).Unwrap(),
+									"wind_chill_f":                    windChill.Unwrap(),
+									"wind_chill_c":                    windChill.C().Unwrap(),
 									"weather_symbol":                  weatherSymbol,
 									"sky":                             sky,
 								},
