@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path"
 	"strconv"
@@ -402,12 +403,12 @@ func main() {
 									"outdoor_temp_f":                  outdoorTemp.Unwrap(),
 									"outdoor_temp_c":                  outdoorTemp.C().Unwrap(),
 									"outdoor_humidity":                outdoorHumidity.Unwrap(),
-									"barometric_pressure_mb":          pressureMillibar.Unwrap(),
+									"barometric_pressure_mb":          int(math.Round(pressureMillibar.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
 									"barometric_pressure_inHg":        pressureMillibar.InHg().Unwrap(),
 									"dew_point":                       dewpoint.Unwrap(),
 									"dew_point_f":                     dewpoint.Unwrap(),
 									"dew_point_c":                     dewpoint.C().Unwrap(),
-									"wind_speed":                      windSpeedMph.Unwrap(),
+									"wind_speed":                      int(math.Round(windSpeedMph.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
 									"wind_speed_mph":                  windSpeedMph.Unwrap(),
 									"wind_bearing":                    windBearing,
 									"visibility_mi":                   visibilityMiles.Unwrap(),
