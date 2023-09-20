@@ -34,7 +34,7 @@ jobs:
       - name: Check if this is a running version tag update
         id: running_version_tag
         run: |
-          if [[ "${{ github.event_name }}" = "pull_request" ]]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
               echo "is_running_version_tag_update=false" >> "$GITHUB_OUTPUT"
           elif [[ ${{ github.event.ref }} =~ ^refs/tags/v[0-9]+\.[0-9]+$ ]]; then
               echo "is_running_version_tag_update=true" >> "$GITHUB_OUTPUT"
