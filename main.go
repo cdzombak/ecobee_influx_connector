@@ -48,10 +48,18 @@ const (
 	ecobeeWeatherMeasurementName = "ecobee_weather"
 )
 
+var version = "<dev>"
+
 func main() {
-	var configFile = flag.String("config", "", "Configuration JSON file.")
-	var listThermostats = flag.Bool("list-thermostats", false, "List available thermostats, then exit.")
+	configFile := flag.String("config", "", "Configuration JSON file.")
+	listThermostats := flag.Bool("list-thermostats", false, "List available thermostats, then exit.")
+	printVersion := flag.Bool("version", false, "Print version and exit.")
 	flag.Parse()
+
+	if *printVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	if *configFile == "" {
 		fmt.Println("-config is required.")
