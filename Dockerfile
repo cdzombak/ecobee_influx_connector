@@ -5,12 +5,14 @@ FROM golang:1-alpine AS builder
 ARG BIN_NAME
 ARG BIN_VERSION
 WORKDIR /src/ecobee_influx_connector
+RUN apk add --no-cache ca-certificates
 COPY . .
 RUN go build -ldflags="-X main.version=${BIN_VERSION}" -o ./out/${BIN_NAME} .
 
 FROM scratch
 ARG BIN_NAME
 COPY --from=builder /src/ecobee_influx_connector/out/${BIN_NAME} /usr/bin/ecobee_influx_connector
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 VOLUME /config
 ENTRYPOINT ["/usr/bin/ecobee_influx_connector"]
 CMD ["-config", "/config/config.json"]
