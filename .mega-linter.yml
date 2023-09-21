@@ -1,0 +1,24 @@
+# https://megalinter.io/configuration/
+
+---
+APPLY_FIXES: all
+DISABLE:
+  - COPYPASTE
+  - DOCKERFILE
+  - REPOSITORY
+  - SPELL
+DISABLE_LINTERS:
+  - GO_GOLANGCI_LINT
+  - MAKEFILE_CHECKMAKE
+PLUGINS:
+  - https://raw.githubusercontent.com/shiranr/linkcheck/main/mega-linter-plugin-linkcheck/linkcheck.megalinter-descriptor.yml
+  - https://raw.githubusercontent.com/cdzombak/mega-linter-plugin-dockerfilelint/main/mega-linter-plugin-dockerfilelint/dockerfilelint.megalinter-descriptor.yml
+
+GO_REVIVE_CONFIG_FILE: ".revive.toml"
+GO_REVIVE_FILTER_REGEX_EXCLUDE: "(ecobee/)"
+MARKDOWN_MARKDOWNLINT_ARGUMENTS: "--disable MD013"
+
+VALIDATE_ALL_CODEBASE: true
+SHOW_ELAPSED_TIME: false
+FILEIO_REPORTER: false
+PRINT_ALPACA: false

@@ -1,74 +1,299 @@
-# This is a basic workflow to help you get started with Actions
-
+---
 name: CI
 
-# Controls when the action will run. 
-on:
-  # Triggers the workflow on push or pull request events but only for the main branch
+"on":
   push:
-    branches: [ main ]
+    branches:
+      - "main"
+    tags:
+      - "v*.*.*"
   pull_request:
-    branches: [ main ]
+    branches:
+      - "main"
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+permissions:
+  contents: read
+
+env:
+  DOCKER_PLATFORMS: "linux/amd64,linux/arm64,linux/386,linux/arm/v7,linux/arm/v6"
+  FPM_VERSION: 1.15.1
 
 jobs:
-  docker:
+
+  meta:
+    name: Derive Build Metadata
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Prepare
-        id: prep
+        uses: actions/checkout@v4
+      - name: Derive version string
+        id: bin_version
+        run: echo "bin_version=$(./.version.sh)" >> "$GITHUB_OUTPUT"
+      - name: bin_version
+        run: 'echo bin_version: ${{ steps.bin_version.outputs.bin_version }}'
+      - name: Check if this is a running version tag update
+        id: running_version_tag
         run: |
-          DOCKER_IMAGE=${{ secrets.DOCKER_USERNAME }}/${GITHUB_REPOSITORY#*/}
-          VERSION=latest
-          SHORTREF=${GITHUB_SHA::8}
-
-          # If this is git tag, use the tag name as a docker tag
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/v}
+          if [ -z "${{ github.event.ref }}" ]; then
+              echo "is_running_version_tag_update=false" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event.ref }}" =~ ^refs/tags/v[0-9]+\.[0-9]+$ ]]; then
+              echo "is_running_version_tag_update=true" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event.ref }}" =~ ^refs/tags/v[0-9]+$ ]]; then
+              echo "is_running_version_tag_update=true" >> "$GITHUB_OUTPUT"
+          else
+              echo "is_running_version_tag_update=false" >> "$GITHUB_OUTPUT"
           fi
-          TAGS="${DOCKER_IMAGE}:${VERSION},${DOCKER_IMAGE}:${SHORTREF}"
+      - name: is_running_version_tag
+        run: 'echo is_running_version_tag_update: ${{ steps.running_version_tag.outputs.is_running_version_tag_update }}'
+    outputs:
+      bin_name: ${{ github.event.repository.name }}
+      bin_version: ${{ steps.bin_version.outputs.bin_version }}
+      dockerhub_owner: ${{ github.repository_owner }}
+      ghcr_owner: ${{ github.repository_owner }}
+      packagecloud_owner: ${{ github.repository_owner }}
+      packagecloud_repo: oss
+      is_prerelease: >-
+            ${{
+              steps.running_version_tag.outputs.is_running_version_tag_update != 'true' &&
+              startsWith(github.ref, 'refs/tags/v') &&
+                (contains(github.ref, '-alpha.')
+                || contains(github.ref, '-beta.')
+                || contains(github.ref, '-rc.'))
+            }}
+      is_release: >-
+            ${{
+              steps.running_version_tag.outputs.is_running_version_tag_update != 'true' &&
+              startsWith(github.ref, 'refs/tags/v') &&
+                !(contains(github.ref, '-alpha.')
+                || contains(github.ref, '-beta.')
+                || contains(github.ref, '-rc.'))
+            }}
+      is_pull_request: ${{ github.event_name == 'pull_request' }}
+      is_running_version_tag_update: ${{ steps.running_version_tag.outputs.is_running_version_tag_update }}
 
-          # If the VERSION looks like a version number, assume that
-          # this is the most recent version of the image and also
-          # tag it 'latest'.
-          if [[ $VERSION =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            TAGS="$TAGS,${DOCKER_IMAGE}:latest"
-          fi
 
-          # Set output parameters.
-          echo ::set-output name=tags::${TAGS}
-          echo ::set-output name=docker_image::${DOCKER_IMAGE}
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      checks: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run MegaLinter
+        uses: oxsecurity/megalinter@v7
+        env:
+          # See https://megalinter.io/configuration and .mega-linter.yml
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Archive MegaLinter artifacts
+        if: ( !env.ACT && ( success() || failure() ) )
+        uses: actions/upload-artifact@v3
+        with:
+          name: MegaLinter artifacts
+          path: |
+            megalinter-reports
+            mega-linter.log
+
+
+  docker:
+    name: Docker Images
+    needs: [lint, meta]
+    if: needs.meta.outputs.is_running_version_tag_update != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        if: needs.meta.outputs.is_pull_request != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        if: needs.meta.outputs.is_pull_request != 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@master
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
       - name: Set up Docker Buildx
         id: buildx
-        uses: docker/setup-buildx-action@master
+        uses: docker/setup-buildx-action@v3
 
       - name: Available platforms
         run: echo ${{ steps.buildx.outputs.platforms }}
 
-      - name: Login to DockerHub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v1
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v5
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          images: |
+            ${{ needs.meta.outputs.dockerhub_owner }}/${{ needs.meta.outputs.bin_name }}
+            ghcr.io/${{ needs.meta.outputs.ghcr_owner }}/${{ needs.meta.outputs.bin_name }}
+          tags: |
+            type=raw,value=latest,enable=${{ needs.meta.outputs.is_release == 'true' }}
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
 
-      - name: Build
-        uses: docker/build-push-action@v2
+      - name: Build and push
+        uses: docker/build-push-action@v5
         with:
-          builder: ${{ steps.buildx.outputs.name }}
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64,linux/386,linux/arm/v7,linux/arm/v6
-          push: true
-          tags: ${{ steps.prep.outputs.tags }}
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+          builder: ${{ steps.buildx.outputs.name }}
+          push: ${{ needs.meta.outputs.is_pull_request != 'true' }}
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          build-args: |
+            BIN_VERSION=${{ needs.meta.outputs.bin_version }}
+
+      - name: Update Docker Hub description
+        if: needs.meta.outputs.is_release == 'true'
+        uses: peter-evans/dockerhub-description@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ needs.meta.outputs.dockerhub_owner }}/${{ needs.meta.outputs.bin_name }}
+          readme-filepath: ./README.md
+          short-description: ${{ github.event.repository.description }}
+
+
+  binaries:
+    name: Binaries & Debian Packages
+    needs: [lint, meta]
+    if: needs.meta.outputs.is_running_version_tag_update != 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: stable
+      - name: Go version
+        run: go version
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+      - name: Ruby version
+        run: ruby --version
+      - name: Install fpm
+        run: |
+          gem install --no-document fpm -v "$FPM_VERSION"
+
+      - name: Build binaries & packages
+        run: make package
+      - name: Prepare release artifacts
+        working-directory: out/
+        run: |
+          mkdir ./gh-release
+          cp ./*.deb ./gh-release/
+          find . -name '${{ needs.meta.outputs.bin_name }}-*' -executable -type f -maxdepth 1 -print0 | xargs -0 -I {} tar --transform='flags=r;s|.*|${{ needs.meta.outputs.bin_name }}|' -czvf ./gh-release/{}.tar.gz {}
+      - name: Upload binaries & packages
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ needs.meta.outputs.bin_name }} Binary Artifacts
+          path: out/gh-release/*
+
+
+  release:
+    name: GitHub (Pre)Release
+    needs: [meta, binaries]
+    if: >-
+          needs.meta.outputs.is_release == 'true' ||
+          needs.meta.outputs.is_prerelease == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download binaries & packages
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.meta.outputs.bin_name }} Binary Artifacts
+          path: out
+      - name: List artifacts
+        working-directory: out
+        run: ls -R
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: out/${{ needs.meta.outputs.bin_name }}-*
+          prerelease: ${{ needs.meta.outputs.is_prerelease == 'true' }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+
+
+  tags:
+    name: Update Release Tags
+    needs: [meta, release]
+    if: needs.meta.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Update running major/minor version tags
+        uses: sersoft-gmbh/running-release-tags-action@v3
+        with:
+          fail-on-non-semver-tag: true
+          create-release: false
+          update-full-release: false
+
+
+  packagecloud:
+    name: PackageCloud
+    needs: [meta, binaries]
+    if: needs.meta.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Download binaries & packages
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.meta.outputs.bin_name }} Binary Artifacts
+          path: out
+      - name: List artifacts
+        run: ls -R
+        working-directory: out
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+      - name: Ruby version
+        run: ruby --version
+      - name: Install PackageCloud CLI
+        run: |
+          gem install --no-document package_cloud
+
+      - name: Push to PackageCloud
+        env:
+          PACKAGECLOUD_TOKEN: ${{ secrets.PACKAGECLOUD_TOKEN }}
+        run: |
+          package_cloud push --yes ${{ needs.meta.outputs.packagecloud_owner }}/${{ needs.meta.outputs.packagecloud_repo }}/any/any out/*.deb

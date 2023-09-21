@@ -5,9 +5,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=cdzombak
-Group=cdzombak
-ExecStart=/usr/local/bin/ecobee_influx_connector -config "/home/cdzombak/.ecobee_influx_connector/config.json"
+User=ME
+Group=ME
+ExecStart=/usr/local/bin/ecobee_influx_connector -config "/home/ME/.ecobee_influx_connector/config.json"
 Restart=always
 RestartSec=5
 

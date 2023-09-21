@@ -1,0 +1,6 @@
+-s dir
+--name ecobee_influx_connector
+--description "Ship your Ecobee runtime, sensor and weather data to InfluxDB."
+--url "https://github.com/cdzombak/ecobee_influx_connector"
+--maintainer "Chris Dzombak <https://www.dzombak.com>"
+--license Apache-2.0

@@ -19,6 +19,8 @@ import (
 	"ecobee_influx_connector/ecobee" // taken from https://github.com/rspier/go-ecobee and lightly customized
 )
 
+// Config describes the ecobee_influx_connector program's configuration.
+// It is used to parse the configuration JSON file.
 type Config struct {
 	APIKey                    string `json:"api_key"`
 	WorkDir                   string `json:"work_dir,omitempty"`
@@ -48,10 +50,18 @@ const (
 	ecobeeWeatherMeasurementName = "ecobee_weather"
 )
 
+var version = "<dev>"
+
 func main() {
-	var configFile = flag.String("config", "", "Configuration JSON file.")
-	var listThermostats = flag.Bool("list-thermostats", false, "List available thermostats, then exit.")
+	configFile := flag.String("config", "", "Configuration JSON file.")
+	listThermostats := flag.Bool("list-thermostats", false, "List available thermostats, then exit.")
+	printVersion := flag.Bool("version", false, "Print version and exit.")
 	flag.Parse()
+
+	if *printVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 
 	if *configFile == "" {
 		fmt.Println("-config is required.")
@@ -119,8 +129,8 @@ func main() {
 			log.Fatalf("InfluxDB did not pass health check: status %s; message '%s'", health.Status, *health.Message)
 		}
 	}
-	influxWriteApi := influxClient.WriteAPIBlocking(config.InfluxOrg, config.InfluxBucket)
-	_ = influxWriteApi
+	influxWriteAPI := influxClient.WriteAPIBlocking(config.InfluxOrg, config.InfluxBucket)
+	_ = influxWriteAPI
 
 	lastWrittenRuntimeInterval := 0
 	lastWrittenWeather := time.Time{}
@@ -161,7 +171,7 @@ func main() {
 						"voc":                 actualVOC,
 					}
 
-					err := influxWriteApi.WritePoint(ctx,
+					err := influxWriteAPI.WritePoint(ctx,
 						influxdb2.NewPoint(
 							"ecobee_air_quality",
 							map[string]string{thermostatNameTag: t.Name}, // tags
@@ -276,7 +286,7 @@ func main() {
 							if config.WriteCool2 {
 								fields["cool_2_run_time"] = cool2RunSec
 							}
-							err := influxWriteApi.WritePoint(ctx,
+							err := influxWriteAPI.WritePoint(ctx,
 								influxdb2.NewPoint(
 									"ecobee_runtime",
 									map[string]string{thermostatNameTag: t.Name},
@@ -339,7 +349,7 @@ func main() {
 							if presenceSupported {
 								fields["occupied"] = presence
 							}
-							err := influxWriteApi.WritePoint(ctx,
+							err := influxWriteAPI.WritePoint(ctx,
 								influxdb2.NewPoint(
 									"ecobee_sensor",
 									map[string]string{
@@ -391,7 +401,7 @@ func main() {
 						if config.AlwaysWriteWeather {
 							pointTime = time.Now()
 						}
-						err := influxWriteApi.WritePoint(ctx,
+						err := influxWriteAPI.WritePoint(ctx,
 							influxdb2.NewPoint(
 								ecobeeWeatherMeasurementName,
 								map[string]string{ // tags

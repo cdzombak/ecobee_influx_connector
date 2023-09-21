@@ -1,0 +1,9 @@
+---
+version: "3.9"
+services:
+  ecobee_influx_connector:
+    image: cdzombak/ecobee_influx_connector:1
+    container_name: ecobee_influx_connector
+    restart: unless-stopped
+    volumes:
+      - /home/ME/.ecobee_influx_connector:/config

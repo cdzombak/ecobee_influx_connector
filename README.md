@@ -1,5 +1,7 @@
 # Ecobee -> InfluxDB Connector
 
+Ship your Ecobee runtime, sensor and weather data to InfluxDB.
+
 ## Getting Started
 
 1. Register and enable the developer dashboard on your Ecobee account at https://www.ecobee.com/developers/
@@ -33,7 +35,7 @@ To use the Docker container make sure the path to the `config.json` is provided 
 
 ### Important
 
-Before building a persistent container, you will want to execute `docker run --rm -it -v $HOME/ecobee:/config cdzombak/ecobee_influx_connector /go/src/app/ecobee_influx_connector -config "/config/config.json" -list-thermostats` so that you can get your token cached (`/config/ecobee-cred-cache`). This will give you a single key you can then use to authenticate with your ecobee api app. After auth you should see the thermostat_ids listed for all your devices.
+Before building a persistent container, you will want to execute `docker run --rm -it -v $HOME/ecobee:/config cdzombak/ecobee_influx_connector -config "/config/config.json" -list-thermostats` so that you can get your token cached (`/config/ecobee-cred-cache`). This will give you a single key you can then use to authenticate with your ecobee api app. After auth you should see the thermostat_ids listed for all your devices.
 
 If you build a persistent container before performing the above, the initial token request will loop and it will be hard to get the cached token.
 
@@ -65,13 +67,13 @@ docker run -d --name ecobeetest --restart=always -v ./config:/config -it cdzomba
 ## Build
 
 ```shell
-go build -o ./ecobee_influx_connector .
+make build
 ```
 
 To cross-compile for eg. Linux/amd64:
 
 ```shell
-env GOOS=linux GOARCH=amd64 go build -o ./ecobee_influx_connector .
+env GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=$(./.version.sh)" -o ./ecobee_influx_connector .
 ```
 
 ## Install & Run via systemd on Linux
@@ -97,7 +99,7 @@ The connector does not directly support multiple thermostats. To support this us
 
 ## License
 
-Apache 2; see `LICENSE` in this repository.
+Apache 2.0; see `LICENSE` in this repository.
 
 ## Author
 
