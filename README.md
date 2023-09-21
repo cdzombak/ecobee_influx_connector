@@ -83,7 +83,7 @@ env GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=$(./.version.sh)"
 3. Create a work directory for the connector. (I put this at `$HOME/.ecobee_influx_connector`.)
 4. Run `chmod 700 $YOUR_NEW_WORK_DIR`. (For my work directory, I ran `chmod 700 $HOME/.ecobee_influx_connector`.)
 5. Create a configuration JSON file, per the Configure instructions above. (I put this at `$HOME/.ecobee_influx_connector/config.json`.)
-6. Customize [`ecobee-influx-connector.service`](https://raw.githubusercontent.com/cdzombak/ecobee_influx_connector/main/ecobee-influx-connector.service) with your user/group name and the path to your config file.
+6. Customize [`ecobee-influx-connector.service`](https://raw.githubusercontent.com/cdzombak/ecobee_influx_connector/main/ecobee-influx-connector.example.service) with your user/group name and the path to your config file.
 7. Copy that customized `ecobee-influx-connector.service` to `/etc/systemd/system`.
 8. Run `chown root:root /etc/systemd/system/ecobee-influx-connector.service`.
 9. Run `systemctl daemon-reload && systemctl enable ecobee-influx-connector.service && systemctl start ecobee-influx-connector.service`.
