@@ -15,7 +15,7 @@ VOLUME /config
 ENTRYPOINT ["/usr/bin/ecobee_influx_connector"]
 CMD ["-config", "/config/config.json"]
 
-LABEL license="LGPL3"
+LABEL license="Apache-2.0"
 LABEL maintainer="Chris Dzombak <https://www.dzombak.com>"
 LABEL org.opencontainers.image.authors="Chris Dzombak <https://www.dzombak.com>"
 LABEL org.opencontainers.image.url="https://github.com/cdzombak/ecobee_influx_connector"
