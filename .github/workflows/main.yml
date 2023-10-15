@@ -19,7 +19,6 @@ env:
   FPM_VERSION: 1.15.1
 
 jobs:
-
   meta:
     name: Derive Build Metadata
     runs-on: ubuntu-latest
@@ -30,7 +29,7 @@ jobs:
         id: bin_version
         run: echo "bin_version=$(./.version.sh)" >> "$GITHUB_OUTPUT"
       - name: bin_version
-        run: 'echo bin_version: ${{ steps.bin_version.outputs.bin_version }}'
+        run: "echo bin_version: ${{ steps.bin_version.outputs.bin_version }}"
       - name: Check if this is a running version tag update
         id: running_version_tag
         run: |
@@ -44,7 +43,7 @@ jobs:
               echo "is_running_version_tag_update=false" >> "$GITHUB_OUTPUT"
           fi
       - name: is_running_version_tag
-        run: 'echo is_running_version_tag_update: ${{ steps.running_version_tag.outputs.is_running_version_tag_update }}'
+        run: "echo is_running_version_tag_update: ${{ steps.running_version_tag.outputs.is_running_version_tag_update }}"
     outputs:
       bin_name: ${{ github.event.repository.name }}
       bin_version: ${{ steps.bin_version.outputs.bin_version }}
@@ -53,24 +52,23 @@ jobs:
       packagecloud_owner: ${{ github.repository_owner }}
       packagecloud_repo: oss
       is_prerelease: >-
-            ${{
-              steps.running_version_tag.outputs.is_running_version_tag_update != 'true' &&
-              startsWith(github.ref, 'refs/tags/v') &&
-                (contains(github.ref, '-alpha.')
-                || contains(github.ref, '-beta.')
-                || contains(github.ref, '-rc.'))
-            }}
+        ${{
+          steps.running_version_tag.outputs.is_running_version_tag_update != 'true' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+            (contains(github.ref, '-alpha.')
+            || contains(github.ref, '-beta.')
+            || contains(github.ref, '-rc.'))
+        }}
       is_release: >-
-            ${{
-              steps.running_version_tag.outputs.is_running_version_tag_update != 'true' &&
-              startsWith(github.ref, 'refs/tags/v') &&
-                !(contains(github.ref, '-alpha.')
-                || contains(github.ref, '-beta.')
-                || contains(github.ref, '-rc.'))
-            }}
+        ${{
+          steps.running_version_tag.outputs.is_running_version_tag_update != 'true' &&
+          startsWith(github.ref, 'refs/tags/v') &&
+            !(contains(github.ref, '-alpha.')
+            || contains(github.ref, '-beta.')
+            || contains(github.ref, '-rc.'))
+        }}
       is_pull_request: ${{ github.event_name == 'pull_request' }}
       is_running_version_tag_update: ${{ steps.running_version_tag.outputs.is_running_version_tag_update }}
-
 
   lint:
     name: Lint
@@ -97,7 +95,6 @@ jobs:
             megalinter-reports
             mega-linter.log
 
-
   docker:
     name: Docker Images
     needs: [lint, meta]
@@ -107,7 +104,6 @@ jobs:
       contents: read
       packages: write
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -176,7 +172,6 @@ jobs:
           readme-filepath: ./README.md
           short-description: ${{ github.event.repository.description }}
 
-
   binaries:
     name: Binaries & Debian Packages
     needs: [lint, meta]
@@ -197,7 +192,7 @@ jobs:
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: "3.2"
           bundler-cache: true
       - name: Ruby version
         run: ruby --version
@@ -219,13 +214,12 @@ jobs:
           name: ${{ needs.meta.outputs.bin_name }} Binary Artifacts
           path: out/gh-release/*
 
-
   release:
     name: GitHub (Pre)Release
     needs: [meta, binaries]
     if: >-
-          needs.meta.outputs.is_release == 'true' ||
-          needs.meta.outputs.is_prerelease == 'true'
+      needs.meta.outputs.is_release == 'true' ||
+      needs.meta.outputs.is_prerelease == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -246,7 +240,6 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
 
-
   tags:
     name: Update Release Tags
     needs: [meta, release]
@@ -264,14 +257,12 @@ jobs:
           create-release: false
           update-full-release: false
 
-
-  packagecloud:
-    name: PackageCloud
+  aptly:
+    name: Aptly
     needs: [meta, binaries]
     if: needs.meta.outputs.is_release == 'true'
     runs-on: ubuntu-latest
     steps:
-
       - name: Download binaries & packages
         uses: actions/download-artifact@v3
         with:
@@ -281,19 +272,32 @@ jobs:
         run: ls -R
         working-directory: out
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Login to Tailscale
+        uses: tailscale/github-action@v2
         with:
-          ruby-version: '3.2'
-          bundler-cache: true
-      - name: Ruby version
-        run: ruby --version
-      - name: Install PackageCloud CLI
-        run: |
-          gem install --no-document package_cloud
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:github-actions
 
-      - name: Push to PackageCloud
-        env:
-          PACKAGECLOUD_TOKEN: ${{ secrets.PACKAGECLOUD_TOKEN }}
+      - name: Push to Aptly Repo
+        shell: bash
         run: |
-          package_cloud push --yes ${{ needs.meta.outputs.packagecloud_owner }}/${{ needs.meta.outputs.packagecloud_repo }}/any/any out/*.deb
+          set -x
+          for DEB in out/*.deb; do
+            curl -u "${{ secrets.APTLY_CRED }}" \
+              -fsS -X POST \
+              -F file=@"${DEB}" \
+              "${{ secrets.APTLY_API }}/files/${{ needs.meta.outputs.bin_name }}-${{ needs.meta.outputs.bin_version }}"
+          done
+          curl -u "${{ secrets.APTLY_CRED }}" \
+            -fsS -X POST \
+            "${{ secrets.APTLY_API }}/repos/${{ needs.meta.outputs.aptly_repo_name }}/file/${{ needs.meta.outputs.bin_name }}-${{ needs.meta.outputs.bin_version }}?forceReplace=1"
+
+      - name: Update Published Aptly Repo
+        run: |
+          set -x
+          curl -u "${{ secrets.APTLY_CRED }}" \
+            -fsS -X PUT \
+            -H 'Content-Type: application/json' \
+            --data '{"ForceOverwrite": true}' \
+            "${{ secrets.APTLY_API }}/publish/${{ needs.meta.outputs.aptly_publish_prefix }}/${{ needs.meta.outputs.aptly_dist }}?_async=true"

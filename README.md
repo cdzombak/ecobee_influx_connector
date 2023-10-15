@@ -45,26 +45,47 @@ There is an example `docker-compose.yml` file above. Make sure to modify the vol
 
 Example:
 
-`volumes:`\
-`- $DOCKERAPPPATH/ecobee_influx_connector:/config`
+```yaml
+volumes:
+  - $DOCKERAPPPATH/ecobee_influx_connector:/config
+```
 
 ### Docker Run
 
-Example: 
+Example:
 
 If using the image you built from Dockerfile, use:
 
 ```shell
 docker run -d --name ecobeetest --restart=always -v ./config:/config -it ecobee_influx_connector
-`
+```
 
 If using the Docker image, use:
 
 ```shell
 docker run -d --name ecobeetest --restart=always -v ./config:/config -it cdzombak/ecobee_influx_connector:latest
-`
+```
 
-## Build
+## Install on Debian via apt repository
+
+Install my Debian repository if you haven't already:
+
+```shell
+sudo apt-get install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://dist.cdzombak.net/deb.key | sudo gpg --dearmor -o /etc/apt/keyrings/dist-cdzombak-net.gpg
+sudo chmod 0644 /etc/apt/keyrings/dist-cdzombak-net.gpg
+echo -e "deb [signed-by=/etc/apt/keyrings/dist-cdzombak-net.gpg] https://dist.cdzombak.net/deb/oss any oss\n" | sudo tee -a /etc/apt/sources.list.d/dist-cdzombak-net.list > /dev/null
+sudo apt-get update
+```
+
+Then install `ecobee_influx_connector` via `apt-get`:
+
+```shell
+sudo apt-get install ecobee_influx_connector
+```
+
+## Build from source
 
 ```shell
 make build
@@ -76,9 +97,9 @@ To cross-compile for eg. Linux/amd64:
 env GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=$(./.version.sh)" -o ./ecobee_influx_connector .
 ```
 
-## Install & Run via systemd on Linux
+## Run via systemd on Linux
 
-1. Build the `ecobee_influx_connector` binary per the Build instructions above.
+1. Build the `ecobee_influx_connector` binary or install it per the instructions above.
 2. Copy it to `/usr/local/bin` or your preferred location.
 3. Create a work directory for the connector. (I put this at `$HOME/.ecobee_influx_connector`.)
 4. Run `chmod 700 $YOUR_NEW_WORK_DIR`. (For my work directory, I ran `chmod 700 $HOME/.ecobee_influx_connector`.)
@@ -103,4 +124,4 @@ Apache 2.0; see `LICENSE` in this repository.
 
 ## Author
 
-[Chris Dzombak](https://www.dzombak.com) (GitHub [@cdzombak](https://github.com/cdzombak)).
+[Chris Dzombak](https://www.dzombak.com) (GitHub: [@cdzombak](https://github.com/cdzombak)).
