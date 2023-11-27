@@ -7,7 +7,7 @@ toolchain go1.21.0
 require (
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/cdzombak/libwx v1.0.1
-	github.com/golang/glog v1.1.2
+	github.com/golang/glog v1.2.0
 	github.com/influxdata/influxdb-client-go/v2 v2.12.4
 	golang.org/x/oauth2 v0.14.0
 )
