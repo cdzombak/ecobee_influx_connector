@@ -82,7 +82,7 @@ sudo apt-get update
 Then install `ecobee_influx_connector` via `apt-get`:
 
 ```shell
-sudo apt-get install ecobee_influx_connector
+sudo apt-get install ecobee-influx-connector
 ```
 
 ## Build from source
