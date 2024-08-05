@@ -9,7 +9,7 @@ require (
 	github.com/cdzombak/libwx v1.1.1
 	github.com/golang/glog v1.2.1
 	github.com/influxdata/influxdb-client-go/v2 v2.13.0
-	golang.org/x/oauth2 v0.21.0
+	golang.org/x/oauth2 v0.22.0
 )
 
 require (
