@@ -226,7 +226,7 @@ jobs:
       contents: write
     steps:
       - name: Download binaries & packages
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: ${{ needs.meta.outputs.bin_name }} Binary Artifacts
           path: out
@@ -265,7 +265,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download binaries & packages
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: ${{ needs.meta.outputs.bin_name }} Binary Artifacts
           path: out
