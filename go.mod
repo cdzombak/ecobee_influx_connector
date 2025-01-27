@@ -1,12 +1,11 @@
 module ecobee_influx_connector
 
 go 1.21
-
-toolchain go1.21.0
+toolchain go1.22.5
 
 require (
 	github.com/avast/retry-go v3.0.0+incompatible
-	github.com/cdzombak/libwx v1.2.0
+	github.com/cdzombak/libwx v1.3.1
 	github.com/golang/glog v1.2.4
 	github.com/influxdata/influxdb-client-go/v2 v2.14.0
 	golang.org/x/oauth2 v0.25.0
