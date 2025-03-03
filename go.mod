@@ -1,7 +1,6 @@
 module ecobee_influx_connector
 
 go 1.22
-
 toolchain go1.23.5
 
 require (
@@ -9,7 +8,7 @@ require (
 	github.com/cdzombak/libwx v1.3.1
 	github.com/golang/glog v1.2.4
 	github.com/influxdata/influxdb-client-go/v2 v2.14.0
-	golang.org/x/oauth2 v0.26.0
+	golang.org/x/oauth2 v0.27.0
 )
 
 require (
