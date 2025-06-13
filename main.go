@@ -16,6 +16,7 @@ import (
 	wx "github.com/cdzombak/libwx"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/influxdata/influxdb-client-go/v2"
+	influxdb2api "github.com/influxdata/influxdb-client-go/v2/api"
 
 	"ecobee_influx_connector/ecobee" // taken from https://github.com/rspier/go-ecobee and lightly customized
 )
@@ -140,7 +141,7 @@ func main() {
 	}
 
 	var influxClient influxdb2.Client
-	var influxWriteAPI influxdb2.WriteAPIBlocking
+	var influxWriteAPI influxdb2api.WriteAPIBlocking
 	influxEnabled := config.InfluxServer != "" && config.InfluxBucket != ""
 	const influxTimeout = 3 * time.Second
 
