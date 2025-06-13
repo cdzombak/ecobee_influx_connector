@@ -67,6 +67,7 @@ const (
 )
 
 // publishToMQTT publishes a value to an MQTT topic
+// TODO(cdzombak): return an error, but this is going to be messy and need refactoring
 func publishToMQTT(client mqtt.Client, topicRoot string, topicPath string, value interface{}) {
 	if client == nil {
 		return
@@ -76,8 +77,11 @@ func publishToMQTT(client mqtt.Client, topicRoot string, topicPath string, value
 	payload := fmt.Sprintf("%v", value)
 
 	token := client.Publish(topic, 0, false, payload)
-	token.Wait()
-
+	// TODO(cdzombak): make timeout configurable
+	if !token.WaitTimeout(3 * time.Second) {
+		log.Printf("Timeout publishing to MQTT topic %s", topic)
+		return
+	}
 	if token.Error() != nil {
 		log.Printf("Error publishing to MQTT topic %s: %v", topic, token.Error())
 	}
@@ -143,6 +147,7 @@ func main() {
 	var influxClient influxdb2.Client
 	var influxWriteAPI influxdb2api.WriteAPIBlocking
 	influxEnabled := config.InfluxServer != "" && config.InfluxBucket != ""
+	// TODO(cdzombak): make timeout configurable
 	const influxTimeout = 3 * time.Second
 
 	if influxEnabled {
