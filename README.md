@@ -1,6 +1,6 @@
-# Ecobee -> InfluxDB Connector
+# Ecobee -> InfluxDB/MQTT Connector
 
-Ship your Ecobee runtime, sensor and weather data to InfluxDB.
+Ship your Ecobee runtime, sensor and weather data to InfluxDB and/or MQTT.
 
 ## Getting Started
 
@@ -23,6 +23,12 @@ Configuration is specified in a JSON file. Create a file (based on the template 
 - `thermostat_id` can be pulled from step 5 above; it's typically your device's serial number.
 - `work_dir` is where client credentials, `config.json`, and (yet to be implemented) last-written watermarks are stored.
 - Use the `influx_*` config fields to configure the connector to send data to your InfluxDB. If using tokens for bucket authentication, then leave the user and password config fields empty.
+- Use the `mqtt` config section to configure the connector to send data to your MQTT broker:
+  - `enabled`: Set to `true` to enable MQTT publishing
+  - `server`: MQTT broker hostname or IP address
+  - `port`: MQTT broker port (typically 1883 for unencrypted, 8883 for TLS)
+  - `username` and `password`: Optional credentials for the MQTT broker
+  - `topic_root`: Root topic under which all data will be published (e.g., "ecobee")
 - Use the `write_*` config fields to tell the connector which pieces of equipment you use.
 
 ## Run via Docker or Docker Compose
@@ -109,6 +115,73 @@ env GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=$(./.version.sh)"
 8. Run `chown root:root /etc/systemd/system/ecobee-influx-connector.service`.
 9. Run `systemctl daemon-reload && systemctl enable ecobee-influx-connector.service && systemctl start ecobee-influx-connector.service`.
 10. Check the service's status with `systemctl status ecobee-influx-connector.service`.
+
+## MQTT Topic Structure
+
+When MQTT is enabled, the connector publishes data to the following topic structure:
+
+### Runtime Data
+
+Runtime data is published to topics under `<topic_root>/runtime/`:
+
+- `<topic_root>/runtime/temperature` - Current temperature in Fahrenheit
+- `<topic_root>/runtime/temperature_c` - Current temperature in Celsius
+- `<topic_root>/runtime/humidity` - Current humidity percentage
+- `<topic_root>/runtime/heat_set_point` - Heat set point in Fahrenheit
+- `<topic_root>/runtime/heat_set_point_c` - Heat set point in Celsius
+- `<topic_root>/runtime/cool_set_point` - Cool set point in Fahrenheit
+- `<topic_root>/runtime/cool_set_point_c` - Cool set point in Celsius
+- `<topic_root>/runtime/demand_mgmt_offset` - Demand management offset in Fahrenheit
+- `<topic_root>/runtime/demand_mgmt_offset_c` - Demand management offset in Celsius
+- `<topic_root>/runtime/fan_run_time` - Fan runtime in seconds
+- `<topic_root>/runtime/humidity_set_point` - Humidity set point (if enabled)
+- `<topic_root>/runtime/humidifier_run_time` - Humidifier runtime in seconds (if enabled)
+- `<topic_root>/runtime/dehumidifier_run_time` - Dehumidifier runtime in seconds (if enabled)
+- `<topic_root>/runtime/aux_heat_1_run_time` - Auxiliary heat 1 runtime in seconds (if enabled)
+- `<topic_root>/runtime/aux_heat_2_run_time` - Auxiliary heat 2 runtime in seconds (if enabled)
+- `<topic_root>/runtime/heat_pump_1_run_time` - Heat pump 1 runtime in seconds (if enabled)
+- `<topic_root>/runtime/heat_pump_2_run_time` - Heat pump 2 runtime in seconds (if enabled)
+- `<topic_root>/runtime/cool_1_run_time` - Cool 1 runtime in seconds (if enabled)
+- `<topic_root>/runtime/cool_2_run_time` - Cool 2 runtime in seconds (if enabled)
+
+### Sensor Data
+
+Sensor data is published to topics under `<topic_root>/sensor/<sensor_name>/`:
+
+- `<topic_root>/sensor/<sensor_name>/temperature` - Sensor temperature in Fahrenheit
+- `<topic_root>/sensor/<sensor_name>/temperature_c` - Sensor temperature in Celsius
+- `<topic_root>/sensor/<sensor_name>/occupied` - Sensor occupancy status (if supported)
+
+### Air Quality Data
+
+Air quality data is published to topics under `<topic_root>/sensor/`:
+
+- `<topic_root>/sensor/airquality_accuracy` - Air quality accuracy
+- `<topic_root>/sensor/airquality_score` - Air quality score
+- `<topic_root>/sensor/co2` - CO2 level
+- `<topic_root>/sensor/voc` - VOC level
+
+### Weather Data
+
+Weather data is published to topics under `<topic_root>/weather/`:
+
+- `<topic_root>/weather/outdoor_temp` - Outdoor temperature in Fahrenheit
+- `<topic_root>/weather/outdoor_temp_c` - Outdoor temperature in Celsius
+- `<topic_root>/weather/outdoor_humidity` - Outdoor humidity percentage
+- `<topic_root>/weather/barometric_pressure_mb` - Barometric pressure in millibars
+- `<topic_root>/weather/barometric_pressure_inHg` - Barometric pressure in inches of mercury
+- `<topic_root>/weather/dew_point` - Dew point in Fahrenheit
+- `<topic_root>/weather/dew_point_c` - Dew point in Celsius
+- `<topic_root>/weather/wind_speed` - Wind speed in mph (integer)
+- `<topic_root>/weather/wind_speed_mph` - Wind speed in mph (float)
+- `<topic_root>/weather/wind_bearing` - Wind bearing in degrees
+- `<topic_root>/weather/visibility_mi` - Visibility in miles
+- `<topic_root>/weather/visibility_km` - Visibility in kilometers
+- `<topic_root>/weather/recommended_max_indoor_humidity` - Recommended maximum indoor humidity
+- `<topic_root>/weather/wind_chill_f` - Wind chill in Fahrenheit
+- `<topic_root>/weather/wind_chill_c` - Wind chill in Celsius
+- `<topic_root>/weather/weather_symbol` - Weather symbol code
+- `<topic_root>/weather/sky` - Sky condition code
 
 ## FAQ
 

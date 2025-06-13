@@ -14,33 +14,44 @@ import (
 
 	"github.com/avast/retry-go"
 	wx "github.com/cdzombak/libwx"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/influxdata/influxdb-client-go/v2"
 
 	"ecobee_influx_connector/ecobee" // taken from https://github.com/rspier/go-ecobee and lightly customized
 )
 
+type MQTTConfig struct {
+	Enabled   bool   `json:"enabled"`
+	Server    string `json:"server"`
+	Port      int    `json:"port,omitempty"`
+	Username  string `json:"username,omitempty"`
+	Password  string `json:"password,omitempty"`
+	TopicRoot string `json:"topic_root"`
+}
+
 // Config describes the ecobee_influx_connector program's configuration.
 // It is used to parse the configuration JSON file.
 type Config struct {
-	APIKey                    string `json:"api_key"`
-	WorkDir                   string `json:"work_dir,omitempty"`
-	ThermostatID              string `json:"thermostat_id"`
-	InfluxServer              string `json:"influx_server"`
-	InfluxOrg                 string `json:"influx_org,omitempty"`
-	InfluxUser                string `json:"influx_user,omitempty"`
-	InfluxPass                string `json:"influx_password,omitempty"`
-	InfluxToken               string `json:"influx_token,omitempty"`
-	InfluxBucket              string `json:"influx_bucket"`
-	InfluxHealthCheckDisabled bool   `json:"influx_health_check_disabled"`
-	WriteHeatPump1            bool   `json:"write_heat_pump_1"`
-	WriteHeatPump2            bool   `json:"write_heat_pump_2"`
-	WriteAuxHeat1             bool   `json:"write_aux_heat_1"`
-	WriteAuxHeat2             bool   `json:"write_aux_heat_2"`
-	WriteCool1                bool   `json:"write_cool_1"`
-	WriteCool2                bool   `json:"write_cool_2"`
-	WriteHumidifier           bool   `json:"write_humidifier"`
-	WriteDehumidifier         bool   `json:"write_dehumidifier"`
-	AlwaysWriteWeather        bool   `json:"always_write_weather_as_current"`
+	APIKey                    string     `json:"api_key"`
+	WorkDir                   string     `json:"work_dir,omitempty"`
+	ThermostatID              string     `json:"thermostat_id"`
+	InfluxServer              string     `json:"influx_server"`
+	InfluxOrg                 string     `json:"influx_org,omitempty"`
+	InfluxUser                string     `json:"influx_user,omitempty"`
+	InfluxPass                string     `json:"influx_password,omitempty"`
+	InfluxToken               string     `json:"influx_token,omitempty"`
+	InfluxBucket              string     `json:"influx_bucket"`
+	InfluxHealthCheckDisabled bool       `json:"influx_health_check_disabled"`
+	MQTT                      MQTTConfig `json:"mqtt"`
+	WriteHeatPump1            bool       `json:"write_heat_pump_1"`
+	WriteHeatPump2            bool       `json:"write_heat_pump_2"`
+	WriteAuxHeat1             bool       `json:"write_aux_heat_1"`
+	WriteAuxHeat2             bool       `json:"write_aux_heat_2"`
+	WriteCool1                bool       `json:"write_cool_1"`
+	WriteCool2                bool       `json:"write_cool_2"`
+	WriteHumidifier           bool       `json:"write_humidifier"`
+	WriteDehumidifier         bool       `json:"write_dehumidifier"`
+	AlwaysWriteWeather        bool       `json:"always_write_weather_as_current"`
 }
 
 const (
@@ -49,6 +60,23 @@ const (
 	sourceTag                    = "data_source"
 	ecobeeWeatherMeasurementName = "ecobee_weather"
 )
+
+// publishToMQTT publishes a value to an MQTT topic
+func publishToMQTT(client mqtt.Client, topicRoot string, topicPath string, value interface{}) {
+	if client == nil {
+		return
+	}
+
+	topic := fmt.Sprintf("%s/%s", topicRoot, topicPath)
+	payload := fmt.Sprintf("%v", value)
+
+	token := client.Publish(topic, 0, false, payload)
+	token.Wait()
+
+	if token.Error() != nil {
+		log.Printf("Error publishing to MQTT topic %s: %v", topic, token.Error())
+	}
+}
 
 var version = "<dev>"
 
@@ -130,7 +158,38 @@ func main() {
 		}
 	}
 	influxWriteAPI := influxClient.WriteAPIBlocking(config.InfluxOrg, config.InfluxBucket)
-	_ = influxWriteAPI
+
+	// Initialize MQTT client if enabled
+	var mqttClient mqtt.Client
+	if config.MQTT.Enabled {
+		if config.MQTT.Server == "" || config.MQTT.TopicRoot == "" {
+			log.Fatalf("MQTT is enabled but server or topic_root is not set in the config file.")
+		}
+
+		opts := mqtt.NewClientOptions()
+		port := config.MQTT.Port
+		if port == 0 {
+			port = 1883 // Default MQTT port
+		}
+		broker := fmt.Sprintf("tcp://%s:%d", config.MQTT.Server, port)
+		opts.AddBroker(broker)
+
+		if config.MQTT.Username != "" {
+			opts.SetUsername(config.MQTT.Username)
+			opts.SetPassword(config.MQTT.Password)
+		}
+
+		opts.SetClientID(fmt.Sprintf("ecobee_influx_connector_%d", time.Now().Unix()))
+		opts.SetAutoReconnect(true)
+		opts.SetConnectRetry(true)
+
+		mqttClient = mqtt.NewClient(opts)
+		if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
+			log.Fatalf("Failed to connect to MQTT broker: %v", token.Error())
+		}
+
+		log.Printf("Connected to MQTT broker at %s", broker)
+	}
 
 	lastWrittenRuntimeInterval := 0
 	lastWrittenWeather := time.Time{}
@@ -181,6 +240,15 @@ func main() {
 					if err != nil {
 						return err
 					}
+
+					// Publish to MQTT if enabled
+					if config.MQTT.Enabled && mqttClient != nil {
+						publishToMQTT(mqttClient, config.MQTT.TopicRoot, "sensor/airquality_accuracy", actualAQAccuracy)
+						publishToMQTT(mqttClient, config.MQTT.TopicRoot, "sensor/airquality_score", actualAQScore)
+						publishToMQTT(mqttClient, config.MQTT.TopicRoot, "sensor/co2", actualCO2)
+						publishToMQTT(mqttClient, config.MQTT.TopicRoot, "sensor/voc", actualVOC)
+					}
+
 					return nil
 				}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 					return err
@@ -260,11 +328,9 @@ func main() {
 							if config.WriteHumidifier || config.WriteDehumidifier {
 								fields["humidity_set_point"] = humiditySetPoint
 							}
-
 							if config.WriteHumidifier {
 								fields["humidifier_run_time"] = humidifierRunSec
 							}
-
 							if config.WriteDehumidifier {
 								fields["dehumidifier_run_time"] = dehumidifierRunSec
 							}
@@ -296,6 +362,50 @@ func main() {
 							if err != nil {
 								return err
 							}
+
+							// Publish to MQTT if enabled
+							if config.MQTT.Enabled && mqttClient != nil {
+								// Publish runtime data
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/temperature_f", currentTemp.Unwrap())
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/temperature_c", currentTemp.C().Unwrap())
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/humidity", currentHumidity)
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/heat_set_point_f", heatSetPoint.Unwrap())
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/heat_set_point_c", heatSetPoint.C().Unwrap())
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/cool_set_point_f", coolSetPoint.Unwrap())
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/cool_set_point_c", coolSetPoint.C().Unwrap())
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/demand_mgmt_offset_f", demandMgmtOffset.Unwrap())
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/demand_mgmt_offset_c", demandMgmtOffset.C().Unwrap())
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/fan_run_time", fanRunSec)
+
+								if config.WriteHumidifier || config.WriteDehumidifier {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/humidity_set_point", humiditySetPoint)
+								}
+								if config.WriteHumidifier {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/humidifier_run_time", humidifierRunSec)
+								}
+								if config.WriteDehumidifier {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/dehumidifier_run_time", dehumidifierRunSec)
+								}
+								if config.WriteAuxHeat1 {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/aux_heat_1_run_time", auxHeat1RunSec)
+								}
+								if config.WriteAuxHeat2 {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/aux_heat_2_run_time", auxHeat2RunSec)
+								}
+								if config.WriteHeatPump1 {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/heat_pump_1_run_time", heatPump1RunSec)
+								}
+								if config.WriteHeatPump2 {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/heat_pump_2_run_time", heatPump2RunSec)
+								}
+								if config.WriteCool1 {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/cool_1_run_time", cool1RunSec)
+								}
+								if config.WriteCool2 {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/cool_2_run_time", cool2RunSec)
+								}
+							}
+
 							return nil
 						}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 							return err
@@ -363,6 +473,18 @@ func main() {
 							if err != nil {
 								return err
 							}
+
+							// Publish to MQTT if enabled
+							if config.MQTT.Enabled && mqttClient != nil {
+								sensorPrefix := fmt.Sprintf("sensor/%s", sensor.Name)
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, fmt.Sprintf("%s/temperature_f", sensorPrefix), temp.Unwrap())
+								publishToMQTT(mqttClient, config.MQTT.TopicRoot, fmt.Sprintf("%s/temperature_c", sensorPrefix), temp.C().Unwrap())
+
+								if presenceSupported {
+									publishToMQTT(mqttClient, config.MQTT.TopicRoot, fmt.Sprintf("%s/occupied", sensorPrefix), presence)
+								}
+							}
+
 							return nil
 						}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 							return err
@@ -434,6 +556,28 @@ func main() {
 						if err != nil {
 							return err
 						}
+
+						// Publish to MQTT if enabled
+						if config.MQTT.Enabled && mqttClient != nil {
+							// Publish weather data
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/outdoor_temp_f", outdoorTemp.Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/outdoor_temp_c", outdoorTemp.C().Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/outdoor_humidity", outdoorHumidity.Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/barometric_pressure_mb", int(math.Round(pressureMillibar.Unwrap())))
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/barometric_pressure_inHg", pressureMillibar.InHg().Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/dew_point_f", dewpoint.Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/dew_point_c", dewpoint.C().Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/wind_speed_mph", windSpeedMph.Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/wind_bearing", windBearing)
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/visibility_mi", visibilityMiles.Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/visibility_km", visibilityMiles.Km().Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/recommended_max_indoor_humidity", wx.IndoorHumidityRecommendationF(outdoorTemp).Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/wind_chill_f", windChill.Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/wind_chill_c", windChill.C().Unwrap())
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/weather_symbol", weatherSymbol)
+							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/sky", sky)
+						}
+
 						lastWrittenWeather = weatherTime
 						return nil
 					}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
