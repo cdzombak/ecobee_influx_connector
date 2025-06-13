@@ -31,6 +31,8 @@ Configuration is specified in a JSON file. Create a file (based on the template 
   - `topic_root`: Root topic under which all data will be published (e.g., "ecobee")
 - Use the `write_*` config fields to tell the connector which pieces of equipment you use.
 
+**Note:** At least one output method (InfluxDB or MQTT) must be configured. The connector will exit with an error if neither InfluxDB nor MQTT is properly configured.
+
 ## Run via Docker or Docker Compose
 
 A Dockerfile is provided. To build your Docker image, `cd` into the project directory and run `docker build -t ecobee_influx_connector .`
