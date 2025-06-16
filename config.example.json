@@ -9,13 +9,15 @@
   "influx_token": "",
   "influx_org": "",
   "influx_health_check_disabled": false,
+  "influx_timeout_seconds": 3,
   "mqtt": {
     "enabled": false,
     "server": "192.168.1.2",
     "port": 1883,
     "username": "",
     "password": "",
-    "topic_root": "ecobee"
+    "topic_root": "ecobee",
+    "timeout_seconds": 3
   },
   "always_write_weather_as_current": false,
   "write_heat_pump_1": false,

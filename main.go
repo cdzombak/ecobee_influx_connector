@@ -22,12 +22,13 @@ import (
 )
 
 type MQTTConfig struct {
-	Enabled   bool   `json:"enabled"`
-	Server    string `json:"server"`
-	Port      int    `json:"port,omitempty"`
-	Username  string `json:"username,omitempty"`
-	Password  string `json:"password,omitempty"`
-	TopicRoot string `json:"topic_root"`
+	Enabled        bool   `json:"enabled"`
+	Server         string `json:"server"`
+	Port           int    `json:"port,omitempty"`
+	Username       string `json:"username,omitempty"`
+	Password       string `json:"password,omitempty"`
+	TopicRoot      string `json:"topic_root"`
+	TimeoutSeconds int    `json:"timeout,omitempty"`
 }
 
 // Config describes the ecobee_influx_connector program's configuration.
@@ -43,6 +44,7 @@ type Config struct {
 	InfluxToken               string     `json:"influx_token,omitempty"`
 	InfluxBucket              string     `json:"influx_bucket"`
 	InfluxHealthCheckDisabled bool       `json:"influx_health_check_disabled"`
+	InfluxTimeoutSeconds      int        `json:"influx_timeout,omitempty"`
 	MQTT                      MQTTConfig `json:"mqtt"`
 	WriteHeatPump1            bool       `json:"write_heat_pump_1"`
 	WriteHeatPump2            bool       `json:"write_heat_pump_2"`
@@ -126,8 +128,10 @@ func main() {
 	var influxClient influxdb2.Client
 	var influxWriteAPI influxdb2api.WriteAPIBlocking
 	influxEnabled := config.InfluxServer != "" && config.InfluxBucket != ""
-	// TODO(cdzombak): make timeout configurable
-	const influxTimeout = 3 * time.Second
+	influxTimeout := time.Duration(config.InfluxTimeoutSeconds) * time.Second
+	if influxTimeout == 0 {
+		influxTimeout = 3 * time.Second // default timeout
+	}
 
 	if influxEnabled {
 		authString := ""
