@@ -29,6 +29,7 @@ Configuration is specified in a JSON file. Create a file (based on the template 
   - `port`: MQTT broker port (typically 1883 for unencrypted, 8883 for TLS)
   - `username` and `password`: Optional credentials for the MQTT broker
   - `topic_root`: Root topic under which all data will be published (e.g., "ecobee")
+  - `timeout`: Timeout in seconds for MQTT publish operations (optional; default: `3`)
 - Use the `write_*` config fields to tell the connector which pieces of equipment you use.
 
 **Note:** At least one output method (InfluxDB or MQTT) must be configured. The connector will exit with an error if neither InfluxDB nor MQTT is properly configured.
@@ -122,68 +123,15 @@ env GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=$(./.version.sh)"
 
 When MQTT is enabled, the connector publishes data to the following topic structure:
 
-### Runtime Data
+`<topic_root>/<thermostat_id>/<category>/<measurement>`
 
-Runtime data is published to topics under `<topic_root>/runtime/`:
+Where:
+- `<topic_root>` is the configured root topic (e.g., "ecobee")
+- `<thermostat_id>` is your thermostat's ID from the configuration
+- `<category>` is the data category (runtime, sensor, weather)
+- `<measurement>` is the specific metric being published
 
-- `<topic_root>/runtime/temperature` - Current temperature in Fahrenheit
-- `<topic_root>/runtime/temperature_c` - Current temperature in Celsius
-- `<topic_root>/runtime/humidity` - Current humidity percentage
-- `<topic_root>/runtime/heat_set_point` - Heat set point in Fahrenheit
-- `<topic_root>/runtime/heat_set_point_c` - Heat set point in Celsius
-- `<topic_root>/runtime/cool_set_point` - Cool set point in Fahrenheit
-- `<topic_root>/runtime/cool_set_point_c` - Cool set point in Celsius
-- `<topic_root>/runtime/demand_mgmt_offset` - Demand management offset in Fahrenheit
-- `<topic_root>/runtime/demand_mgmt_offset_c` - Demand management offset in Celsius
-- `<topic_root>/runtime/fan_run_time` - Fan runtime in seconds
-- `<topic_root>/runtime/humidity_set_point` - Humidity set point (if enabled)
-- `<topic_root>/runtime/humidifier_run_time` - Humidifier runtime in seconds (if enabled)
-- `<topic_root>/runtime/dehumidifier_run_time` - Dehumidifier runtime in seconds (if enabled)
-- `<topic_root>/runtime/aux_heat_1_run_time` - Auxiliary heat 1 runtime in seconds (if enabled)
-- `<topic_root>/runtime/aux_heat_2_run_time` - Auxiliary heat 2 runtime in seconds (if enabled)
-- `<topic_root>/runtime/heat_pump_1_run_time` - Heat pump 1 runtime in seconds (if enabled)
-- `<topic_root>/runtime/heat_pump_2_run_time` - Heat pump 2 runtime in seconds (if enabled)
-- `<topic_root>/runtime/cool_1_run_time` - Cool 1 runtime in seconds (if enabled)
-- `<topic_root>/runtime/cool_2_run_time` - Cool 2 runtime in seconds (if enabled)
-
-### Sensor Data
-
-Sensor data is published to topics under `<topic_root>/sensor/<sensor_name>/`:
-
-- `<topic_root>/sensor/<sensor_name>/temperature` - Sensor temperature in Fahrenheit
-- `<topic_root>/sensor/<sensor_name>/temperature_c` - Sensor temperature in Celsius
-- `<topic_root>/sensor/<sensor_name>/occupied` - Sensor occupancy status (if supported)
-
-### Air Quality Data
-
-Air quality data is published to topics under `<topic_root>/sensor/`:
-
-- `<topic_root>/sensor/airquality_accuracy` - Air quality accuracy
-- `<topic_root>/sensor/airquality_score` - Air quality score
-- `<topic_root>/sensor/co2` - CO2 level
-- `<topic_root>/sensor/voc` - VOC level
-
-### Weather Data
-
-Weather data is published to topics under `<topic_root>/weather/`:
-
-- `<topic_root>/weather/outdoor_temp` - Outdoor temperature in Fahrenheit
-- `<topic_root>/weather/outdoor_temp_c` - Outdoor temperature in Celsius
-- `<topic_root>/weather/outdoor_humidity` - Outdoor humidity percentage
-- `<topic_root>/weather/barometric_pressure_mb` - Barometric pressure in millibars
-- `<topic_root>/weather/barometric_pressure_inHg` - Barometric pressure in inches of mercury
-- `<topic_root>/weather/dew_point` - Dew point in Fahrenheit
-- `<topic_root>/weather/dew_point_c` - Dew point in Celsius
-- `<topic_root>/weather/wind_speed` - Wind speed in mph (integer)
-- `<topic_root>/weather/wind_speed_mph` - Wind speed in mph (float)
-- `<topic_root>/weather/wind_bearing` - Wind bearing in degrees
-- `<topic_root>/weather/visibility_mi` - Visibility in miles
-- `<topic_root>/weather/visibility_km` - Visibility in kilometers
-- `<topic_root>/weather/recommended_max_indoor_humidity` - Recommended maximum indoor humidity
-- `<topic_root>/weather/wind_chill_f` - Wind chill in Fahrenheit
-- `<topic_root>/weather/wind_chill_c` - Wind chill in Celsius
-- `<topic_root>/weather/weather_symbol` - Weather symbol code
-- `<topic_root>/weather/sky` - Sky condition code
+**Example:** If your topic root is "home/sensors" and your thermostat ID is "123456789", then the indoor temperature would be published to: `home/sensors/123456789/runtime/temperature_f`
 
 ## FAQ
 
