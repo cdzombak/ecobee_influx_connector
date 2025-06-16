@@ -83,7 +83,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.2.2
       - name: Run MegaLinter
-        uses: oxsecurity/megalinter@e08c2b0 # v8.8.0
+        uses: oxsecurity/megalinter@e08c2b05e3dbc40af4c23f41172ef1e068a7d651 # v8.8.0
         env:
           # See https://megalinter.io/configuration and .mega-linter.yml
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -165,7 +165,7 @@ jobs:
 
       - name: Update Docker Hub description
         if: needs.meta.outputs.is_release == 'true'
-        uses: peter-evans/dockerhub-description@432a30c # v4.0.2
+        uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77 # v4.0.2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -234,7 +234,7 @@ jobs:
         working-directory: out
         run: ls -R
       - name: Create GitHub release
-        uses: softprops/action-gh-release@72f2c25 # v2.3.2
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.3.2
         with:
           files: out/${{ needs.meta.outputs.bin_name }}-*
           prerelease: ${{ needs.meta.outputs.is_prerelease == 'true' }}
@@ -252,7 +252,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.2.2
       - name: Update running major/minor version tags
-        uses: sersoft-gmbh/running-release-tags-action@890dc5c # v3.0.0
+        uses: sersoft-gmbh/running-release-tags-action@890dc5c1d9edd0d0fef2fd67c6de2df641e720a6 # v3.0.0
         with:
           fail-on-non-semver-tag: true
           create-release: false
@@ -274,7 +274,7 @@ jobs:
         working-directory: out
 
       - name: Login to Tailscale
-        uses: tailscale/github-action@5d53611 # v3.2.1
+        uses: tailscale/github-action@5d536117a7378beffcd6d8523ce73c50fa98684d # v3.2.1
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
