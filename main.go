@@ -66,27 +66,6 @@ const (
 	ecobeeWeatherMeasurementName = "ecobee_weather"
 )
 
-// publishToMQTT publishes a value to an MQTT topic
-// TODO(cdzombak): return an error, but this is going to be messy and need refactoring
-func publishToMQTT(client mqtt.Client, topicRoot string, topicPath string, value interface{}) {
-	if client == nil {
-		return
-	}
-
-	topic := fmt.Sprintf("%s/%s", topicRoot, topicPath)
-	payload := fmt.Sprintf("%v", value)
-
-	token := client.Publish(topic, 0, false, payload)
-	// TODO(cdzombak): make timeout configurable
-	if !token.WaitTimeout(3 * time.Second) {
-		log.Printf("Timeout publishing to MQTT topic %s", topic)
-		return
-	}
-	if token.Error() != nil {
-		log.Printf("Error publishing to MQTT topic %s: %v", topic, token.Error())
-	}
-}
-
 var version = "<dev>"
 
 func main() {
@@ -224,7 +203,7 @@ func main() {
 					return err
 				}
 
-				// Air quality related values are only in the current runtime,
+				// Air-quality-related values are only in the current runtime,
 				// thus they need to be handled outside the extended runtime section
 				currentRuntimeReportTime, err := time.Parse("2006-01-02 15:04:05", t.Runtime.LastStatusModified)
 				if err != nil {
@@ -252,24 +231,22 @@ func main() {
 					}
 
 					if influxEnabled {
-						err := influxWriteAPI.WritePoint(ctx,
+						if err := influxWriteAPI.WritePoint(ctx,
 							influxdb2.NewPoint(
 								"ecobee_air_quality",
 								map[string]string{thermostatNameTag: t.Name}, // tags
 								fields,
 								currentRuntimeReportTime,
-							))
-						if err != nil {
+							)); err != nil {
 							return err
 						}
 					}
 
 					// Publish to MQTT if enabled
-					if config.MQTT.Enabled && mqttClient != nil {
-						publishToMQTT(mqttClient, config.MQTT.TopicRoot, "sensor/airquality_accuracy", actualAQAccuracy)
-						publishToMQTT(mqttClient, config.MQTT.TopicRoot, "sensor/airquality_score", actualAQScore)
-						publishToMQTT(mqttClient, config.MQTT.TopicRoot, "sensor/co2", actualCO2)
-						publishToMQTT(mqttClient, config.MQTT.TopicRoot, "sensor/voc", actualVOC)
+					if config.MQTT.Enabled {
+						if err := publishFieldsToMQTT(mqttClient, config, "sensor", fields); err != nil {
+							return err
+						}
 					}
 
 					return nil
@@ -376,58 +353,21 @@ func main() {
 								fields["cool_2_run_time"] = cool2RunSec
 							}
 							if influxEnabled {
-								err := influxWriteAPI.WritePoint(ctx,
+								if err := influxWriteAPI.WritePoint(ctx,
 									influxdb2.NewPoint(
 										"ecobee_runtime",
 										map[string]string{thermostatNameTag: t.Name},
 										fields,
 										reportTime,
-									))
-								if err != nil {
+									)); err != nil {
 									return err
 								}
 							}
 
 							// Publish to MQTT if enabled
-							if config.MQTT.Enabled && mqttClient != nil {
-								// Publish runtime data
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/temperature_f", currentTemp.Unwrap())
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/temperature_c", currentTemp.C().Unwrap())
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/humidity", currentHumidity)
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/heat_set_point_f", heatSetPoint.Unwrap())
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/heat_set_point_c", heatSetPoint.C().Unwrap())
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/cool_set_point_f", coolSetPoint.Unwrap())
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/cool_set_point_c", coolSetPoint.C().Unwrap())
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/demand_mgmt_offset_f", demandMgmtOffset.Unwrap())
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/demand_mgmt_offset_c", demandMgmtOffset.C().Unwrap())
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/fan_run_time", fanRunSec)
-
-								if config.WriteHumidifier || config.WriteDehumidifier {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/humidity_set_point", humiditySetPoint)
-								}
-								if config.WriteHumidifier {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/humidifier_run_time", humidifierRunSec)
-								}
-								if config.WriteDehumidifier {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/dehumidifier_run_time", dehumidifierRunSec)
-								}
-								if config.WriteAuxHeat1 {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/aux_heat_1_run_time", auxHeat1RunSec)
-								}
-								if config.WriteAuxHeat2 {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/aux_heat_2_run_time", auxHeat2RunSec)
-								}
-								if config.WriteHeatPump1 {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/heat_pump_1_run_time", heatPump1RunSec)
-								}
-								if config.WriteHeatPump2 {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/heat_pump_2_run_time", heatPump2RunSec)
-								}
-								if config.WriteCool1 {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/cool_1_run_time", cool1RunSec)
-								}
-								if config.WriteCool2 {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, "runtime/cool_2_run_time", cool2RunSec)
+							if config.MQTT.Enabled {
+								if err := publishFieldsToMQTT(mqttClient, config, "runtime", fields); err != nil {
+									return err
 								}
 							}
 
@@ -485,7 +425,7 @@ func main() {
 								fields["occupied"] = presence
 							}
 							if influxEnabled {
-								err := influxWriteAPI.WritePoint(ctx,
+								if err := influxWriteAPI.WritePoint(ctx,
 									influxdb2.NewPoint(
 										"ecobee_sensor",
 										map[string]string{
@@ -495,20 +435,15 @@ func main() {
 										}, // tags
 										fields,
 										sensorTime,
-									))
-								if err != nil {
+									)); err != nil {
 									return err
 								}
 							}
 
-							// Publish to MQTT if enabled
-							if config.MQTT.Enabled && mqttClient != nil {
+							if config.MQTT.Enabled {
 								sensorPrefix := fmt.Sprintf("sensor/%s", sensor.Name)
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, fmt.Sprintf("%s/temperature_f", sensorPrefix), temp.Unwrap())
-								publishToMQTT(mqttClient, config.MQTT.TopicRoot, fmt.Sprintf("%s/temperature_c", sensorPrefix), temp.C().Unwrap())
-
-								if presenceSupported {
-									publishToMQTT(mqttClient, config.MQTT.TopicRoot, fmt.Sprintf("%s/occupied", sensorPrefix), presence)
+								if err := publishFieldsToMQTT(mqttClient, config, sensorPrefix, fields); err != nil {
+									return err
 								}
 							}
 
@@ -550,61 +485,46 @@ func main() {
 						if config.AlwaysWriteWeather {
 							pointTime = time.Now()
 						}
+						fields := map[string]interface{}{
+							"outdoor_temp":                    outdoorTemp.Unwrap(),
+							"outdoor_temp_f":                  outdoorTemp.Unwrap(),
+							"outdoor_temp_c":                  outdoorTemp.C().Unwrap(),
+							"outdoor_humidity":                outdoorHumidity.Unwrap(),
+							"barometric_pressure_mb":          int(math.Round(pressureMillibar.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
+							"barometric_pressure_inHg":        pressureMillibar.InHg().Unwrap(),
+							"dew_point":                       dewpoint.Unwrap(),
+							"dew_point_f":                     dewpoint.Unwrap(),
+							"dew_point_c":                     dewpoint.C().Unwrap(),
+							"wind_speed":                      int(math.Round(windSpeedMph.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
+							"wind_speed_mph":                  windSpeedMph.Unwrap(),
+							"wind_bearing":                    windBearing,
+							"visibility_mi":                   visibilityMiles.Unwrap(),
+							"visibility_km":                   visibilityMiles.Km().Unwrap(),
+							"recommended_max_indoor_humidity": wx.IndoorHumidityRecommendationF(outdoorTemp).Unwrap(),
+							"wind_chill_f":                    windChill.Unwrap(),
+							"wind_chill_c":                    windChill.C().Unwrap(),
+							"weather_symbol":                  weatherSymbol,
+							"sky":                             sky,
+						}
 						if influxEnabled {
-							err := influxWriteAPI.WritePoint(ctx,
+							if err := influxWriteAPI.WritePoint(ctx,
 								influxdb2.NewPoint(
 									ecobeeWeatherMeasurementName,
 									map[string]string{ // tags
 										thermostatNameTag: t.Name,
 										sourceTag:         source,
 									},
-									map[string]interface{}{ // fields
-										"outdoor_temp":                    outdoorTemp.Unwrap(),
-										"outdoor_temp_f":                  outdoorTemp.Unwrap(),
-										"outdoor_temp_c":                  outdoorTemp.C().Unwrap(),
-										"outdoor_humidity":                outdoorHumidity.Unwrap(),
-										"barometric_pressure_mb":          int(math.Round(pressureMillibar.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
-										"barometric_pressure_inHg":        pressureMillibar.InHg().Unwrap(),
-										"dew_point":                       dewpoint.Unwrap(),
-										"dew_point_f":                     dewpoint.Unwrap(),
-										"dew_point_c":                     dewpoint.C().Unwrap(),
-										"wind_speed":                      int(math.Round(windSpeedMph.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
-										"wind_speed_mph":                  windSpeedMph.Unwrap(),
-										"wind_bearing":                    windBearing,
-										"visibility_mi":                   visibilityMiles.Unwrap(),
-										"visibility_km":                   visibilityMiles.Km().Unwrap(),
-										"recommended_max_indoor_humidity": wx.IndoorHumidityRecommendationF(outdoorTemp).Unwrap(),
-										"wind_chill_f":                    windChill.Unwrap(),
-										"wind_chill_c":                    windChill.C().Unwrap(),
-										"weather_symbol":                  weatherSymbol,
-										"sky":                             sky,
-									},
+									fields,
 									pointTime,
-								))
-							if err != nil {
+								)); err != nil {
 								return err
 							}
 						}
 
-						// Publish to MQTT if enabled
-						if config.MQTT.Enabled && mqttClient != nil {
-							// Publish weather data
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/outdoor_temp_f", outdoorTemp.Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/outdoor_temp_c", outdoorTemp.C().Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/outdoor_humidity", outdoorHumidity.Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/barometric_pressure_mb", int(math.Round(pressureMillibar.Unwrap())))
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/barometric_pressure_inHg", pressureMillibar.InHg().Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/dew_point_f", dewpoint.Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/dew_point_c", dewpoint.C().Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/wind_speed_mph", windSpeedMph.Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/wind_bearing", windBearing)
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/visibility_mi", visibilityMiles.Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/visibility_km", visibilityMiles.Km().Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/recommended_max_indoor_humidity", wx.IndoorHumidityRecommendationF(outdoorTemp).Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/wind_chill_f", windChill.Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/wind_chill_c", windChill.C().Unwrap())
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/weather_symbol", weatherSymbol)
-							publishToMQTT(mqttClient, config.MQTT.TopicRoot, "weather/sky", sky)
+						if config.MQTT.Enabled {
+							if err := publishFieldsToMQTT(mqttClient, config, "weather", fields); err != nil {
+								return err
+							}
 						}
 
 						lastWrittenWeather = weatherTime
