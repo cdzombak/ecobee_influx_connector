@@ -21,6 +21,7 @@ import (
 	"ecobee_influx_connector/ecobee" // taken from https://github.com/rspier/go-ecobee and lightly customized
 )
 
+// MQTTConfig describes the program's (optional) MQTT output configuration.
 type MQTTConfig struct {
 	Enabled        bool   `json:"enabled"`
 	Server         string `json:"server"`
