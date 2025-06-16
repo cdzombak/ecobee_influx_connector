@@ -14,34 +14,53 @@ import (
 
 	"github.com/avast/retry-go"
 	wx "github.com/cdzombak/libwx"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/influxdata/influxdb-client-go/v2"
+	influxdb2api "github.com/influxdata/influxdb-client-go/v2/api"
 
 	"ecobee_influx_connector/ecobee" // taken from https://github.com/rspier/go-ecobee and lightly customized
 )
 
+// MQTTConfig describes the program's (optional) MQTT output configuration.
+type MQTTConfig struct {
+	Enabled        bool   `json:"enabled"`
+	Server         string `json:"server"`
+	Port           int    `json:"port,omitempty"`
+	Username       string `json:"username,omitempty"`
+	Password       string `json:"password,omitempty"`
+	TopicRoot      string `json:"topic_root"`
+	TimeoutSeconds int    `json:"timeout,omitempty"`
+}
+
 // Config describes the ecobee_influx_connector program's configuration.
 // It is used to parse the configuration JSON file.
 type Config struct {
-	APIKey                    string `json:"api_key"`
-	WorkDir                   string `json:"work_dir,omitempty"`
-	ThermostatID              string `json:"thermostat_id"`
-	InfluxServer              string `json:"influx_server"`
-	InfluxOrg                 string `json:"influx_org,omitempty"`
-	InfluxUser                string `json:"influx_user,omitempty"`
-	InfluxPass                string `json:"influx_password,omitempty"`
-	InfluxToken               string `json:"influx_token,omitempty"`
-	InfluxBucket              string `json:"influx_bucket"`
-	InfluxHealthCheckDisabled bool   `json:"influx_health_check_disabled"`
-	WriteHeatPump1            bool   `json:"write_heat_pump_1"`
-	WriteHeatPump2            bool   `json:"write_heat_pump_2"`
-	WriteAuxHeat1             bool   `json:"write_aux_heat_1"`
-	WriteAuxHeat2             bool   `json:"write_aux_heat_2"`
-	WriteCool1                bool   `json:"write_cool_1"`
-	WriteCool2                bool   `json:"write_cool_2"`
-	WriteHumidifier           bool   `json:"write_humidifier"`
-	WriteDehumidifier         bool   `json:"write_dehumidifier"`
-	AlwaysWriteWeather        bool   `json:"always_write_weather_as_current"`
+	APIKey                    string     `json:"api_key"`
+	WorkDir                   string     `json:"work_dir,omitempty"`
+	ThermostatID              string     `json:"thermostat_id"`
+	InfluxServer              string     `json:"influx_server"`
+	InfluxOrg                 string     `json:"influx_org,omitempty"`
+	InfluxUser                string     `json:"influx_user,omitempty"`
+	InfluxPass                string     `json:"influx_password,omitempty"`
+	InfluxToken               string     `json:"influx_token,omitempty"`
+	InfluxBucket              string     `json:"influx_bucket"`
+	InfluxHealthCheckDisabled bool       `json:"influx_health_check_disabled"`
+	InfluxTimeoutSeconds      int        `json:"influx_timeout,omitempty"`
+	MQTT                      MQTTConfig `json:"mqtt"`
+	WriteHeatPump1            bool       `json:"write_heat_pump_1"`
+	WriteHeatPump2            bool       `json:"write_heat_pump_2"`
+	WriteAuxHeat1             bool       `json:"write_aux_heat_1"`
+	WriteAuxHeat2             bool       `json:"write_aux_heat_2"`
+	WriteCool1                bool       `json:"write_cool_1"`
+	WriteCool2                bool       `json:"write_cool_2"`
+	WriteHumidifier           bool       `json:"write_humidifier"`
+	WriteDehumidifier         bool       `json:"write_dehumidifier"`
+	AlwaysWriteWeather        bool       `json:"always_write_weather_as_current"`
 }
+
+// TODO(cdzombak): config v2:
+// - separate write config and influx config into their own sections
+// - add boolean for influx enabled
 
 const (
 	thermostatNameTag            = "thermostat_name"
@@ -106,31 +125,76 @@ func main() {
 	if config.ThermostatID == "" {
 		log.Fatalf("thermostat_id must be set in the config file.")
 	}
-	if config.InfluxBucket == "" || config.InfluxServer == "" {
-		log.Fatalf("influx_server and influx_bucket must be set in the config file.")
+
+	var influxClient influxdb2.Client
+	var influxWriteAPI influxdb2api.WriteAPIBlocking
+	influxEnabled := config.InfluxServer != "" && config.InfluxBucket != ""
+	influxTimeout := time.Duration(config.InfluxTimeoutSeconds) * time.Second
+	if influxTimeout == 0 {
+		influxTimeout = 3 * time.Second // default timeout
 	}
 
-	const influxTimeout = 3 * time.Second
-	authString := ""
-	if config.InfluxUser != "" || config.InfluxPass != "" {
-		authString = fmt.Sprintf("%s:%s", config.InfluxUser, config.InfluxPass)
-	} else if config.InfluxToken != "" {
-		authString = fmt.Sprintf("%s", config.InfluxToken)
-	}
-	influxClient := influxdb2.NewClient(config.InfluxServer, authString)
-	if !config.InfluxHealthCheckDisabled {
-		ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
-		defer cancel()
-		health, err := influxClient.Health(ctx)
-		if err != nil {
-			log.Fatalf("failed to check InfluxDB health: %v", err)
+	if influxEnabled {
+		authString := ""
+		if config.InfluxUser != "" || config.InfluxPass != "" {
+			authString = fmt.Sprintf("%s:%s", config.InfluxUser, config.InfluxPass)
+		} else if config.InfluxToken != "" {
+			authString = fmt.Sprintf("%s", config.InfluxToken)
 		}
-		if health.Status != "pass" {
-			log.Fatalf("InfluxDB did not pass health check: status %s; message '%s'", health.Status, *health.Message)
+		influxClient = influxdb2.NewClient(config.InfluxServer, authString)
+		if !config.InfluxHealthCheckDisabled {
+			ctx, cancel := context.WithTimeout(context.Background(), influxTimeout)
+			defer cancel()
+			health, err := influxClient.Health(ctx)
+			if err != nil {
+				log.Fatalf("failed to check InfluxDB health: %v", err)
+			}
+			if health.Status != "pass" {
+				log.Fatalf("InfluxDB did not pass health check: status %s; message '%s'", health.Status, *health.Message)
+			}
 		}
+		influxWriteAPI = influxClient.WriteAPIBlocking(config.InfluxOrg, config.InfluxBucket)
+		log.Printf("Connected to InfluxDB at %s", config.InfluxServer)
+	} else {
+		log.Printf("InfluxDB is not configured, data will not be written to InfluxDB")
 	}
-	influxWriteAPI := influxClient.WriteAPIBlocking(config.InfluxOrg, config.InfluxBucket)
-	_ = influxWriteAPI
+
+	var mqttClient mqtt.Client
+	mqttEnabled := config.MQTT.Enabled
+	if mqttEnabled {
+		if config.MQTT.Server == "" || config.MQTT.TopicRoot == "" {
+			log.Fatalf("MQTT is enabled but server or topic_root is not set in the config file.")
+		}
+
+		opts := mqtt.NewClientOptions()
+		port := config.MQTT.Port
+		if port == 0 {
+			port = 1883 // Default MQTT port
+		}
+		broker := fmt.Sprintf("tcp://%s:%d", config.MQTT.Server, port)
+		opts.AddBroker(broker)
+
+		if config.MQTT.Username != "" {
+			opts.SetUsername(config.MQTT.Username)
+			opts.SetPassword(config.MQTT.Password)
+		}
+
+		opts.SetClientID(fmt.Sprintf("ecobee_influx_connector_%d", time.Now().Unix()))
+		opts.SetAutoReconnect(true)
+		opts.SetConnectRetry(true)
+
+		mqttClient = mqtt.NewClient(opts)
+		if token := mqttClient.Connect(); token.Wait() && token.Error() != nil {
+			log.Fatalf("Failed to connect to MQTT broker: %v", token.Error())
+		}
+
+		log.Printf("Connected to MQTT broker at %s", broker)
+	}
+
+	// Require at least one output method to be enabled:
+	if !influxEnabled && !mqttEnabled {
+		log.Fatalf("At least one output method (InfluxDB or MQTT) must be configured")
+	}
 
 	lastWrittenRuntimeInterval := 0
 	lastWrittenWeather := time.Time{}
@@ -144,7 +208,7 @@ func main() {
 					return err
 				}
 
-				// Air quality related values are only in the current runtime,
+				// Air-quality-related values are only in the current runtime,
 				// thus they need to be handled outside the extended runtime section
 				currentRuntimeReportTime, err := time.Parse("2006-01-02 15:04:05", t.Runtime.LastStatusModified)
 				if err != nil {
@@ -171,16 +235,25 @@ func main() {
 						"voc":                 actualVOC,
 					}
 
-					err := influxWriteAPI.WritePoint(ctx,
-						influxdb2.NewPoint(
-							"ecobee_air_quality",
-							map[string]string{thermostatNameTag: t.Name}, // tags
-							fields,
-							currentRuntimeReportTime,
-						))
-					if err != nil {
-						return err
+					if influxEnabled {
+						if err := influxWriteAPI.WritePoint(ctx,
+							influxdb2.NewPoint(
+								"ecobee_air_quality",
+								map[string]string{thermostatNameTag: t.Name}, // tags
+								fields,
+								currentRuntimeReportTime,
+							)); err != nil {
+							return err
+						}
 					}
+
+					// Publish to MQTT if enabled
+					if config.MQTT.Enabled {
+						if err := publishFieldsToMQTT(mqttClient, config, "sensor", fields); err != nil {
+							return err
+						}
+					}
+
 					return nil
 				}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 					return err
@@ -260,11 +333,9 @@ func main() {
 							if config.WriteHumidifier || config.WriteDehumidifier {
 								fields["humidity_set_point"] = humiditySetPoint
 							}
-
 							if config.WriteHumidifier {
 								fields["humidifier_run_time"] = humidifierRunSec
 							}
-
 							if config.WriteDehumidifier {
 								fields["dehumidifier_run_time"] = dehumidifierRunSec
 							}
@@ -286,16 +357,25 @@ func main() {
 							if config.WriteCool2 {
 								fields["cool_2_run_time"] = cool2RunSec
 							}
-							err := influxWriteAPI.WritePoint(ctx,
-								influxdb2.NewPoint(
-									"ecobee_runtime",
-									map[string]string{thermostatNameTag: t.Name},
-									fields,
-									reportTime,
-								))
-							if err != nil {
-								return err
+							if influxEnabled {
+								if err := influxWriteAPI.WritePoint(ctx,
+									influxdb2.NewPoint(
+										"ecobee_runtime",
+										map[string]string{thermostatNameTag: t.Name},
+										fields,
+										reportTime,
+									)); err != nil {
+									return err
+								}
 							}
+
+							// Publish to MQTT if enabled
+							if config.MQTT.Enabled {
+								if err := publishFieldsToMQTT(mqttClient, config, "runtime", fields); err != nil {
+									return err
+								}
+							}
+
 							return nil
 						}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 							return err
@@ -349,20 +429,29 @@ func main() {
 							if presenceSupported {
 								fields["occupied"] = presence
 							}
-							err := influxWriteAPI.WritePoint(ctx,
-								influxdb2.NewPoint(
-									"ecobee_sensor",
-									map[string]string{
-										thermostatNameTag: t.Name,
-										"sensor_name":     sensor.Name,
-										"sensor_id":       sensor.ID,
-									}, // tags
-									fields,
-									sensorTime,
-								))
-							if err != nil {
-								return err
+							if influxEnabled {
+								if err := influxWriteAPI.WritePoint(ctx,
+									influxdb2.NewPoint(
+										"ecobee_sensor",
+										map[string]string{
+											thermostatNameTag: t.Name,
+											"sensor_name":     sensor.Name,
+											"sensor_id":       sensor.ID,
+										}, // tags
+										fields,
+										sensorTime,
+									)); err != nil {
+									return err
+								}
 							}
+
+							if config.MQTT.Enabled {
+								sensorPrefix := fmt.Sprintf("sensor/%s", sensor.Name)
+								if err := publishFieldsToMQTT(mqttClient, config, sensorPrefix, fields); err != nil {
+									return err
+								}
+							}
+
 							return nil
 						}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {
 							return err
@@ -401,39 +490,48 @@ func main() {
 						if config.AlwaysWriteWeather {
 							pointTime = time.Now()
 						}
-						err := influxWriteAPI.WritePoint(ctx,
-							influxdb2.NewPoint(
-								ecobeeWeatherMeasurementName,
-								map[string]string{ // tags
-									thermostatNameTag: t.Name,
-									sourceTag:         source,
-								},
-								map[string]interface{}{ // fields
-									"outdoor_temp":                    outdoorTemp.Unwrap(),
-									"outdoor_temp_f":                  outdoorTemp.Unwrap(),
-									"outdoor_temp_c":                  outdoorTemp.C().Unwrap(),
-									"outdoor_humidity":                outdoorHumidity.Unwrap(),
-									"barometric_pressure_mb":          int(math.Round(pressureMillibar.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
-									"barometric_pressure_inHg":        pressureMillibar.InHg().Unwrap(),
-									"dew_point":                       dewpoint.Unwrap(),
-									"dew_point_f":                     dewpoint.Unwrap(),
-									"dew_point_c":                     dewpoint.C().Unwrap(),
-									"wind_speed":                      int(math.Round(windSpeedMph.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
-									"wind_speed_mph":                  windSpeedMph.Unwrap(),
-									"wind_bearing":                    windBearing,
-									"visibility_mi":                   visibilityMiles.Unwrap(),
-									"visibility_km":                   visibilityMiles.Km().Unwrap(),
-									"recommended_max_indoor_humidity": wx.IndoorHumidityRecommendationF(outdoorTemp).Unwrap(),
-									"wind_chill_f":                    windChill.Unwrap(),
-									"wind_chill_c":                    windChill.C().Unwrap(),
-									"weather_symbol":                  weatherSymbol,
-									"sky":                             sky,
-								},
-								pointTime,
-							))
-						if err != nil {
-							return err
+						fields := map[string]interface{}{
+							"outdoor_temp":                    outdoorTemp.Unwrap(),
+							"outdoor_temp_f":                  outdoorTemp.Unwrap(),
+							"outdoor_temp_c":                  outdoorTemp.C().Unwrap(),
+							"outdoor_humidity":                outdoorHumidity.Unwrap(),
+							"barometric_pressure_mb":          int(math.Round(pressureMillibar.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
+							"barometric_pressure_inHg":        pressureMillibar.InHg().Unwrap(),
+							"dew_point":                       dewpoint.Unwrap(),
+							"dew_point_f":                     dewpoint.Unwrap(),
+							"dew_point_c":                     dewpoint.C().Unwrap(),
+							"wind_speed":                      int(math.Round(windSpeedMph.Unwrap())), // we get int precision from Ecobee, and historically this is written as int
+							"wind_speed_mph":                  windSpeedMph.Unwrap(),
+							"wind_bearing":                    windBearing,
+							"visibility_mi":                   visibilityMiles.Unwrap(),
+							"visibility_km":                   visibilityMiles.Km().Unwrap(),
+							"recommended_max_indoor_humidity": wx.IndoorHumidityRecommendationF(outdoorTemp).Unwrap(),
+							"wind_chill_f":                    windChill.Unwrap(),
+							"wind_chill_c":                    windChill.C().Unwrap(),
+							"weather_symbol":                  weatherSymbol,
+							"sky":                             sky,
 						}
+						if influxEnabled {
+							if err := influxWriteAPI.WritePoint(ctx,
+								influxdb2.NewPoint(
+									ecobeeWeatherMeasurementName,
+									map[string]string{ // tags
+										thermostatNameTag: t.Name,
+										sourceTag:         source,
+									},
+									fields,
+									pointTime,
+								)); err != nil {
+								return err
+							}
+						}
+
+						if config.MQTT.Enabled {
+							if err := publishFieldsToMQTT(mqttClient, config, "weather", fields); err != nil {
+								return err
+							}
+						}
+
 						lastWrittenWeather = weatherTime
 						return nil
 					}, retry.Attempts(3), retry.Delay(1*time.Second)); err != nil {

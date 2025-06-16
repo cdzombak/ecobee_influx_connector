@@ -1,6 +1,6 @@
-# Ecobee -> InfluxDB Connector
+# Ecobee -> InfluxDB/MQTT Connector
 
-Ship your Ecobee runtime, sensor and weather data to InfluxDB.
+Ship your Ecobee runtime, sensor and weather data to InfluxDB and/or MQTT.
 
 ## Getting Started
 
@@ -23,7 +23,16 @@ Configuration is specified in a JSON file. Create a file (based on the template 
 - `thermostat_id` can be pulled from step 5 above; it's typically your device's serial number.
 - `work_dir` is where client credentials, `config.json`, and (yet to be implemented) last-written watermarks are stored.
 - Use the `influx_*` config fields to configure the connector to send data to your InfluxDB. If using tokens for bucket authentication, then leave the user and password config fields empty.
+- Use the `mqtt` config section to configure the connector to send data to your MQTT broker:
+  - `enabled`: Set to `true` to enable MQTT publishing
+  - `server`: MQTT broker hostname or IP address
+  - `port`: MQTT broker port (typically 1883 for unencrypted, 8883 for TLS)
+  - `username` and `password`: Optional credentials for the MQTT broker
+  - `topic_root`: Root topic under which all data will be published (e.g., "ecobee")
+  - `timeout`: Timeout in seconds for MQTT publish operations (optional; default: `3`)
 - Use the `write_*` config fields to tell the connector which pieces of equipment you use.
+
+**Note:** At least one output method (InfluxDB or MQTT) must be configured. The connector will exit with an error if neither InfluxDB nor MQTT is properly configured.
 
 ## Run via Docker or Docker Compose
 
@@ -109,6 +118,20 @@ env GOOS=linux GOARCH=amd64 go build -ldflags="-X main.version=$(./.version.sh)"
 8. Run `chown root:root /etc/systemd/system/ecobee-influx-connector.service`.
 9. Run `systemctl daemon-reload && systemctl enable ecobee-influx-connector.service && systemctl start ecobee-influx-connector.service`.
 10. Check the service's status with `systemctl status ecobee-influx-connector.service`.
+
+## MQTT Topic Structure
+
+When MQTT is enabled, the connector publishes data to the following topic structure:
+
+`<topic_root>/<thermostat_id>/<category>/<measurement>`
+
+Where:
+- `<topic_root>` is the configured root topic (e.g., "ecobee")
+- `<thermostat_id>` is your thermostat's ID from the configuration
+- `<category>` is the data category (runtime, sensor, weather)
+- `<measurement>` is the specific metric being published
+
+**Example:** If your topic root is "home/sensors" and your thermostat ID is "123456789", then the indoor temperature would be published to: `home/sensors/123456789/runtime/temperature_f`
 
 ## FAQ
 
