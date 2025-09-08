@@ -191,7 +191,7 @@ jobs:
         run: go version
 
       - name: Setup Ruby
-        uses: ruby/setup-ruby@v1.256.0
+        uses: ruby/setup-ruby@v1.257.0
         with:
           ruby-version: "3.2"
           bundler-cache: true
