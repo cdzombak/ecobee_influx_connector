@@ -11,7 +11,7 @@ require (
 	github.com/golang/glog v1.2.5
 	github.com/influxdata/influxdb-client-go/v2 v2.14.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.18.0
 )
 
 require (
